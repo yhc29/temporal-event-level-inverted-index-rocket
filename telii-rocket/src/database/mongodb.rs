@@ -26,9 +26,11 @@ impl MongoRepo {
         };
         let client = Client::with_uri_str(uri).unwrap();
         let db = client.database("optum_covid19_elii_tree_20220120");
-        let event_col: Collection<Event> = db.collection("event_v3_g90s_1");
+        // let event_col: Collection<Event> = db.collection("event_v3_g90s_1");
         let temporal_relation_col: Collection<Document> = db.collection("tree_v3_g90s_1");
-        let data_col: Collection<Document> = db.collection("tree_tii_v3_g90s_1");
+        // let data_col: Collection<Document> = db.collection("tree_tii_v3_g90s_1");
+        let event_col: Collection<Event> = db.collection("event_vv_gall_1");
+        let data_col: Collection<Document> = db.collection("telii_v4_gall_1");
         MongoRepo { db,event_col,temporal_relation_col,data_col }
     }
     pub fn get_event(&self, id: &str) -> Result<Event, Error> {
