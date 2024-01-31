@@ -53,19 +53,15 @@ fn search(db: &State<MongoRepo>,search_term: Form<SearchTerm>) -> String {
         Err(_) => String::from("Error occurred"), // Handle error
     };
 
-    format!("Response: {}\nYou searched for: {} and {}\nNumber of results: {}", query_response, search_term.query1, search_term.query2, query_len)
+    format!("You searched for: {} and {}\nNumber of results: {}\nResponse: {}\n", query_response, search_term.query1, search_term.query2, query_len)
 }
 
-#[get("/hello")]
-fn hello() -> Result<Json<String>, Status> {
-    Ok(Json(String::from("Hello from rust and mongoDB")))
-}
 
 #[launch]
 fn rocket() -> _ {
     let db = MongoRepo::init();
     rocket::build()
         .manage(db)
-        .mount("/", routes![index, search, hello, get_event, rtq_telii])
+        .mount("/", routes![index, search, get_event, rtq_telii])
 
 }
