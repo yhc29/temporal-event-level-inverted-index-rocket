@@ -13,8 +13,17 @@ use crate::models::event::Event;
 pub struct MongoRepo {
     db: Database,
     event_col: Collection<Event>,
-    pub temporal_relation_col: Collection<Document>,
-    pub data_col: Collection<Document>,
+    pub corpus_col: Collection<Document>,
+    pub elii_col: Collection<Document>,
+    pub telii_col: Collection<Document>,
+    pub telii_common_col: Collection<Document>,
+    pub timeline_col: Collection<Document>,
+}
+
+pub struct EegMongoRepo {
+    db: Database,
+    event_col: Collection<Event>,
+    pub timeline_col: Collection<Document>,
 }
 
 impl MongoRepo {
@@ -25,11 +34,14 @@ impl MongoRepo {
             Err(_) => format!("Error loading env variable"),
         };
         let client = Client::with_uri_str(uri).unwrap();
-        let db = client.database("optum_covid19_elii_tree_20220120");
-        let event_col: Collection<Event> = db.collection("event_v3_g90s_1");
-        let temporal_relation_col: Collection<Document> = db.collection("tree_v3_g90s_1");
-        let data_col: Collection<Document> = db.collection("tree_tii_v3_g90s_1");
-        MongoRepo { db,event_col,temporal_relation_col,data_col }
+        let db = client.database("optum_covid19_telii_20220120");
+        let event_col: Collection<Event> = db.collection("event_v4");
+        let corpus_col: Collection<Document> = db.collection("term_corpus_v4");
+        let elii_col: Collection<Document> = db.collection("elii_v4");
+        let telii_col: Collection<Document> = db.collection("telii_v4_diag_gall_7");
+        let telii_common_col: Collection<Document> = db.collection("telii_common_v4_diag_gall_7");
+        let timeline_col: Collection<Document> = db.collection("pt_timeline_v4_diag_gall_7");
+        MongoRepo { db,event_col,corpus_col,elii_col,telii_col,telii_common_col,timeline_col }
     }
     pub fn get_event(&self, id: &str) -> Result<Event, Error> {
         let id = id.parse::<i32>().unwrap();
@@ -74,3 +86,19 @@ impl MongoRepo {
     }
 
 }
+
+impl EegMongoRepo {
+    pub fn init() -> Self {
+        dotenv().ok();
+        let uri = match env::var("MONGOURI") {
+            Ok(v) => v.to_string(),
+            Err(_) => format!("Error loading env variable"),
+        };
+        let client = Client::with_uri_str(uri).unwrap();
+        let db = client.database("eegdb_telii_amia2024");
+        let event_col: Collection<Event> = db.collection("event_v4");
+        let timeline_col: Collection<Document> = db.collection("pt_timeline_eeg_v4_7");
+        EegMongoRepo { db,event_col,timeline_col }
+    }
+}
+
