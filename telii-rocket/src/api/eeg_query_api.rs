@@ -120,10 +120,11 @@ pub fn box_t_phi(exp: TelExp) -> Document {
 	let t = exp.t;
 	let event = exp.event;
 	let delta = exp.delta;
+	let s = exp.s;
 
 	let mut mongo_stmt = doc!{};
-	if exp.s != "" {
-		mongo_stmt = doc!{ "$and": [ { "$gte": [ exp.s, format!("$min_{}", event) ]}, { "$lte": [ { "$add": [ format!("${}", t), delta ] }, format!("$max_{}", event) ] } ] };
+	if s != "" {
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ s, format!("$min_{}", event) ]}, { "$lte": [ { "$add": [ format!("${}", t), delta ] }, format!("$max_{}", event) ] } ] };
 	} else {
 		let mut min_vec = vec![];
 		for e in exp.events {
@@ -131,7 +132,5 @@ pub fn box_t_phi(exp: TelExp) -> Document {
 		}
 		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$min": min_vec }, format!("$min_{}", event) ]}, { "$lte": [ { "$add": [ format!("${}", t), delta ] }, format!("$max_{}", event) ] } ] };
 	}
-
-
 	return mongo_stmt;
 }
