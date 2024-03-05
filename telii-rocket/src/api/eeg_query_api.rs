@@ -124,13 +124,146 @@ pub fn box_t_phi(exp: TelExp) -> Document {
 
 	let mut mongo_stmt = doc!{};
 	if s != "" {
-		mongo_stmt = doc!{ "$and": [ { "$gte": [ s, format!("$min_{}", event) ]}, { "$lte": [ { "$add": [ format!("${}", t), delta ] }, format!("$max_{}", event) ] } ] };
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ format!("${}", s), format!("$min_{}", event) ]}, { "$lte": [ { "$add": [ format!("${}", t), delta ] }, format!("$max_{}", event) ] } ] };
 	} else {
-		let mut min_vec = vec![];
-		for e in exp.events {
-			min_vec.push(format!("$min_{}", e));
+		let mut s_vec = vec![];
+		for x in exp.events {
+			s_vec.push(format!("$min_{}", x));
 		}
-		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$min": min_vec }, format!("$min_{}", event) ]}, { "$lte": [ { "$add": [ format!("${}", t), delta ] }, format!("$max_{}", event) ] } ] };
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$min": s_vec }, format!("$min_{}", event) ]}, { "$lte": [ { "$add": [ format!("${}", t), delta ] }, format!("$max_{}", event) ] } ] };
+	}
+	return mongo_stmt;
+}
+
+pub fn box_t_neg_phi(exp: TelExp) -> Document {
+	let t = exp.t;
+	let event = exp.event;
+	let delta = exp.delta;
+	let s = exp.s;
+
+	let mut mongo_stmt = doc!{};
+	if s != "" {
+		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), { "$add": [ format!("${}", t) , delta ] }] }, { "$lte": [ format!("$max_{}", event), format!("${}", s)] } ] };
+	} else {
+		let mut s_vec = vec![];
+		for x in exp.events {
+			s_vec.push(format!("$min_{}", x));
+		}
+		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), { "$add": [ format!("${}", t) , delta ] }] }, { "$lte": [ format!("$max_{}", event), { "$min": s_vec }] } ] };
+	}
+	return mongo_stmt;
+}
+
+pub fn box_phi_t(exp: TelExp) -> Document {
+	let t = exp.t;
+	let event = exp.event;
+	let delta = exp.delta;
+	let e = exp.e;
+
+	let mut mongo_stmt = doc!{};
+	if e != "" {
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$add": [ format!("${}", t), delta ] }, format!("$min_{}", event) ] }, { "$gte": [ format!("$max_{}", event), format!("${}", e) ] } ] };
+	} else {
+		let mut e_vec = vec![];
+		for x in exp.events {
+			e_vec.push(format!("$max_{}", x));
+		}
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$add": [ format!("${}", t), delta ] }, format!("$min_{}", event) ] }, { "$gte": [ format!("$max_{}", event), { "$max": e_vec } ] } ] };
+	}
+	return mongo_stmt;
+}
+
+pub fn box_neg_phi_t(exp: TelExp) -> Document {
+	let t = exp.t;
+	let event = exp.event;
+	let delta = exp.delta;
+	let e = exp.e;
+
+	let mut mongo_stmt = doc!{};
+	if e != "" {
+		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), format!("${}", e) ] }, { "$lte": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] }] } ] };
+	} else {
+		let mut e_vec = vec![];
+		for x in exp.events {
+			e_vec.push(format!("$max_{}", x));
+		}
+		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), { "$max": e_vec } ] }, { "$lte": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] }] } ] };
+	}
+	return mongo_stmt;
+}
+
+pub fn diamond_t_phi(exp: TelExp) -> Document {
+	let t = exp.t;
+	let event = exp.event;
+	let delta = exp.delta;
+	let s = exp.s;
+
+	let mut mongo_stmt = doc!{};
+	if s != "" {
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$add": [ format!("${}", t), delta ] },  format!("$min_{}", event) ] }, { "$gt": [ format!("$max_{}", event), format!("${}", s)  ] } ] };
+	} else {
+		let mut s_vec = vec![];
+		for x in exp.events {
+			s_vec.push(format!("$min_{}", x));
+		}
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$add": [ format!("${}", t), delta ] },  format!("$min_{}", event) ] }, { "$gt": [ format!("$max_{}", event), { "$min": s_vec } ] } ] };
+	}
+	return mongo_stmt;
+}
+
+pub fn diamond_t_neg_phi(exp: TelExp) -> Document {
+	let t = exp.t;
+	let event = exp.event;
+	let delta = exp.delta;
+	let s = exp.s;
+
+	let mut mongo_stmt = doc!{};
+	if s != "" {
+		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), format!("${}", s) ] }, { "$lt": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] } ] } ] };
+	} else {
+		let mut s_vec = vec![];
+		for x in exp.events {
+			s_vec.push(format!("$min_{}", x));
+		}
+		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), { "$min": s_vec } ] }, { "$lt": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] } ] } ] };
+	}
+	return mongo_stmt;
+}
+
+pub fn diamond_phi_t(exp: TelExp) -> Document {
+	let t = exp.t;
+	let event = exp.event;
+	let delta = exp.delta;
+	let e = exp.e;
+
+	let mut mongo_stmt = doc!{};
+	if e != "" {
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ format!("${}", e), format!("$min_{}", event)] }, { "$gt": [ format!("$max_{}", event),  { "$add": [ format!("${}", t), delta ] } ] } ] };
+	} else {
+		let mut e_vec = vec![];
+		for x in exp.events {
+			e_vec.push(format!("$max_{}", x));
+		}
+		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$max": e_vec }, format!("$min_{}", event)] }, { "$gt": [ format!("$max_{}", event),  { "$add": [ format!("${}", t), delta ] } ] } ] };
+	}
+	return mongo_stmt;
+}
+
+pub fn diamond_neg_phi_t(exp: TelExp) -> Document {
+	let t = exp.t;
+	let event = exp.event;
+	let delta = exp.delta;
+	let e = exp.e;
+
+	let mut mongo_stmt = doc!{};
+	if e != "" {
+		mongo_stmt = doc!{ "$and": [{ "$gt": [ format!("${}", e), format!("${}", t)]}, { "$or": [ { "$gt": [ format!("$min_{}", event),  { "$add": [ format!("${}", t), delta ] } ] }, { "$lt": [ format!("$max_{}", event), format!("${}", e) ] }] }]};
+	} else {
+		let mut e_vec = vec![];
+		for x in exp.events {
+			e_vec.push(format!("$max_{}", x));
+		}
+		mongo_stmt = doc!{ "$and": [{ "$gt": [ { "$max": e_vec.clone() }, format!("${}", t)]}, { "$or": [ { "$gt": [ format!("$min_{}", event),  { "$add": [ format!("${}", t), delta ] } ] }, { "$lt": [ format!("$max_{}", event), { "$max": e_vec.clone() } ] }] }]};
 	}
 	return mongo_stmt;
 }
