@@ -2,11 +2,12 @@ use std::{result, vec};
 
 use crate::{models::event::Event, database::mongodb::EegMongoRepo};
 use mongodb::{bson::{doc, Document,Bson}, Collection, results::{self, InsertOneResult}};
-use rocket::{http::Status, serde::json::Json, State};
+use rocket::{http::Status, serde::json::{self, Json}, State};
 use std::collections::HashSet;
 use std::collections::HashMap;
 use maplit::hashmap;
 
+#[derive(Clone)]
 pub struct TelExp {
 	pub operator: String,
 	pub t: String,
@@ -19,13 +20,13 @@ pub struct TelExp {
 
 impl TelExp {
 	// Constructor
-	pub fn init(operation: &str, t: &str, event: &str, events: Option<Vec<&str>>, delta: Option<f32>, s: Option<&str>, e: Option<&str> ) -> Self {
+	pub fn init(operator: &str, t: &str, event: &str, events: Option<Vec<&str>>, delta: Option<f32>, s: Option<&str>, e: Option<&str> ) -> Self {
 		let events = events.unwrap_or(vec![]).iter().map(|&s| s.to_string()).collect();
 		let delta = delta.unwrap_or(0.0);
 		let s = s.unwrap_or("");
 		let e = e.unwrap_or("");
 		TelExp {
-			operator: operation.to_string(),
+			operator: operator.to_string(),
 			t: t.to_string(),
 			event: event.to_string(),
 			events: events,
@@ -39,13 +40,43 @@ impl TelExp {
 	pub fn print(&self) {
 			println!("operator: {}, t: {}, event: {}, events: {:?}, delta: {}, s: {}, e: {}", self.operator, self.t, self.event, self.events, self.delta, self.s, self.e);
 	}
+	pub fn latex(&self) -> String {
+		let exp = self.operator.split("_").collect::<Vec<&str>>();
+		let mut op_str = "";
+			if exp[0] == "box" {
+				op_str = " \\Box ";
+			} else if exp[0] == "diamond" {
+				op_str = " \\Diamond ";
+			}
+			let mut t_str = self.t.clone();
+			if self.delta != 0.0 {
+				t_str = format!("{}+{}", self.t, self.delta);
+			}
+
+			let mut latex_str2 = String::new();
+			if exp[1] == "t"{
+				if exp.contains(&"neg"){
+					latex_str2 = format!("{}_{{{}}} \\neg {}", op_str, t_str, self.event);
+				}else{
+					latex_str2 = format!("{}_{{{}}} {}", op_str, t_str, self.event);
+				}
+
+			}else if exp.last().map(|&s| s) == Some("t"){
+				if exp.contains(&"neg"){
+					latex_str2 = format!("({} \\neg {})_{{{}}}", op_str, self.event, t_str);
+				}else{
+					latex_str2 = format!("({} {})_{{{}}}", op_str, self.event, t_str);
+				}
+			}
+			latex_str2
+		}
 }
 
 #[get("/eeg_allen_query?<relation>&<event_id_list1>&<event_id_list2>")]
-pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1: &str, event_id_list2: &str) -> Result<Json<Vec<Document>>, Status> {
+pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1: &str, event_id_list2: &str) -> Result<Json<Document>, Status> {
 	// valid operations: before, after, overlap, contain, start, end
 	let relation = relation.to_lowercase();
-	if relation != "before" && relation != "overlap" && relation != "contain" && relation != "start" && relation != "end" {
+	if vec!["before", "after", "overlap", "contain", "start", "end", "meet", "equal"].contains(&&*relation) == false{
 		return Err(Status::NotFound);
 	}
 	let event_id_list1: Vec<i32> = event_id_list1.split(',')
@@ -63,7 +94,7 @@ pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1:
     "e1" => event_id_list1,
     "e2" => event_id_list2,
 	};
-	let ts = hashmap!{
+	let mut ts = hashmap!{
 		"t" => "e1",
 	};
 	let mut exps = Vec::new();
@@ -72,9 +103,13 @@ pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1:
 			TelExp::init("box_t_phi", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("box_t_neg_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("diamond_neg_phi_t", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
-			TelExp::init("box_neg_phi_t", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None)
+			TelExp::init("box_neg_phi_t", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("box_phi_t", "t", "e2", Some(vec!["e1","e2"]), Some(60.0*1000.0), None, None)
 		];
 	}else if relation == "contain"{
+		ts = hashmap!{
+			"t" => "e2",
+		};
 		exps = vec![
 			TelExp::init("box_t_phi", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("diamond_t_neg_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
@@ -82,6 +117,9 @@ pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1:
 			TelExp::init("diamond_neg_phi_t", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None)
 		];
 	}else if relation == "start"{
+		ts = hashmap!{
+			"t" => "e2",
+		};
 		exps = vec![
 			TelExp::init("box_t_phi", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("box_t_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
@@ -89,6 +127,9 @@ pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1:
 			TelExp::init("diamond_neg_phi_t", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None)
 		];
 	}else if relation == "end"{
+		ts = hashmap!{
+			"t" => "e2",
+		};
 		exps = vec![
 			TelExp::init("box_t_phi", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("diamond_t_neg_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
@@ -98,16 +139,39 @@ pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1:
 	}else if relation == "overlap"{
 		exps = vec![
 			TelExp::init("box_t_phi", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("diamond_t_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("diamond_t_neg_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("box_phi_t", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
 			TelExp::init("diamond_neg_phi_t", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None)
 		];
+	}else if relation == "meet"{
+		exps = vec![
+			TelExp::init("box_t_phi", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("box_t_neg_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("box_neg_phi_t", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("box_phi_t", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None)
+		];
+	}else if relation == "equal"{
+		exps = vec![
+			TelExp::init("box_t_phi", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("box_t_neg_phi", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("box_neg_phi_t", "t", "e1", Some(vec!["e1","e2"]), Some(0.0), None, None),
+			TelExp::init("box_phi_t", "t", "e2", Some(vec!["e1","e2"]), Some(0.0), None, None)
+		];
 	}
 
 
-	let pipeline = construct_query(events, ts, exps);
+	let pipeline = construct_query(events, ts.clone(), exps.clone());
+	let mut tel_cond = doc!{};
 	for _step in pipeline.clone(){
-		println!("{:?}", _step);
+		if _step.contains_key("$addFields"){
+			// println!("{:?}", _step);
+			tel_cond = _step.get_document("$addFields").unwrap().clone();
+			tel_cond = tel_cond.get_document("tel_cond").unwrap().clone();
+			if let Some(Bson::Document(tel_cond_doc)) = tel_cond.get_array("$cond").unwrap().first() {
+				tel_cond = tel_cond_doc.clone();
+			}
+		}
 	}
 	let mut results = Vec::new();
 
@@ -124,13 +188,25 @@ pub fn eeg_allen_query(db: &State<EegMongoRepo>, relation: &str, event_id_list1:
       }
     }
   }
-
+	let api_result = doc!{"exp_latex": construct_exps_latex(exps.clone(),ts.clone()), "tel_cond": tel_cond,"results": results.clone()};
 	match results.len() {
-		_ => Ok(Json(results)),
+		_ => Ok(Json(api_result)),
 		// 0 => Err(Status::NotFound),
 	}
 }
 
+pub fn construct_exps_latex(exps:Vec<TelExp>,ts:HashMap<&str,&str>) -> String {
+	let mut t_set = HashSet::new();
+	for (_k,_v) in ts.iter() {
+		t_set.insert(format!("{} \\in {}", _k, _v));
+	}
+	let mut op_set = HashSet::new();
+	for exp in exps {
+		let exp_latex = exp.latex();
+		op_set.insert(exp_latex.clone());
+	}
+	format!("$\\exists {}, {}$", t_set.into_iter().collect::<Vec<String>>().join(", "), op_set.into_iter().collect::<Vec<String>>().join(" \\land "))
+}
 pub fn construct_query(events: HashMap<&str,Vec<i32>>,ts:HashMap<&str,&str>,exps:Vec<TelExp>) -> Vec<Document> {
 	// get all event ids from values of events
 	let mut event_ids: HashSet<i32> = HashSet::new();
@@ -175,6 +251,12 @@ pub fn construct_query(events: HashMap<&str,Vec<i32>>,ts:HashMap<&str,&str>,exps
 	}
 	mongo_stmt.push(doc!{"$addFields": {"tel_cond": tel_cond_stmt}});
 	mongo_stmt.push(doc!{"$match": {"tel_cond": true}});
+	let mut group_fields = doc!{"subjectid": "$_id"};
+	for _k in events.keys() {
+		group_fields.insert(format!("min_{}", _k), format!("$min_{}", _k));
+		group_fields.insert(format!("max_{}", _k), format!("$max_{}", _k));
+	}
+	mongo_stmt.push(doc!{"$group": {"_id": group_fields}});
 
 
 	return mongo_stmt;
@@ -238,13 +320,13 @@ pub fn box_t_neg_phi(exp: TelExp) -> Document {
 
 	let mut mongo_stmt = doc!{};
 	if s != "" {
-		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), { "$add": [ format!("${}", t) , delta ] }] }, { "$lte": [ format!("$max_{}", event), format!("${}", s)] } ] };
+		mongo_stmt = doc!{ "$or": [ { "$gte": [ format!("$min_{}", event), { "$add": [ format!("${}", t) , delta ] }] }, { "$lte": [ format!("$max_{}", event), format!("${}", s)] } ] };
 	} else {
 		let mut s_vec = vec![];
 		for x in exp.events {
 			s_vec.push(format!("$min_{}", x));
 		}
-		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), { "$add": [ format!("${}", t) , delta ] }] }, { "$lte": [ format!("$max_{}", event), { "$min": s_vec }] } ] };
+		mongo_stmt = doc!{ "$or": [ { "$gte": [ format!("$min_{}", event), { "$add": [ format!("${}", t) , delta ] }] }, { "$lte": [ format!("$max_{}", event), { "$min": s_vec }] } ] };
 	}
 	return mongo_stmt;
 }
@@ -276,13 +358,13 @@ pub fn box_neg_phi_t(exp: TelExp) -> Document {
 
 	let mut mongo_stmt = doc!{};
 	if e != "" {
-		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), format!("${}", e) ] }, { "$lte": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] }] } ] };
+		mongo_stmt = doc!{ "$or": [ { "$gte": [ format!("$min_{}", event), format!("${}", e) ] }, { "$lte": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] }] } ] };
 	} else {
 		let mut e_vec = vec![];
 		for x in exp.events {
 			e_vec.push(format!("$max_{}", x));
 		}
-		mongo_stmt = doc!{ "$or": [ { "$gt": [ format!("$min_{}", event), { "$max": e_vec } ] }, { "$lte": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] }] } ] };
+		mongo_stmt = doc!{ "$or": [ { "$gte": [ format!("$min_{}", event), { "$max": e_vec } ] }, { "$lte": [ format!("$max_{}", event), { "$add": [ format!("${}", t), delta ] }] } ] };
 	}
 	return mongo_stmt;
 }
@@ -295,13 +377,13 @@ pub fn diamond_t_phi(exp: TelExp) -> Document {
 
 	let mut mongo_stmt = doc!{};
 	if s != "" {
-		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$add": [ format!("${}", t), delta ] },  format!("$min_{}", event) ] }, { "$gt": [ format!("$max_{}", event), format!("${}", s)  ] } ] };
+		mongo_stmt = doc!{ "$and": [ { "$gt": [ { "$add": [ format!("${}", t), delta ] },  format!("$min_{}", event) ] }, { "$gt": [ format!("$max_{}", event), format!("${}", s)  ] } ] };
 	} else {
 		let mut s_vec = vec![];
 		for x in exp.events {
 			s_vec.push(format!("$min_{}", x));
 		}
-		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$add": [ format!("${}", t), delta ] },  format!("$min_{}", event) ] }, { "$gt": [ format!("$max_{}", event), { "$min": s_vec } ] } ] };
+		mongo_stmt = doc!{ "$and": [ { "$gt": [ { "$add": [ format!("${}", t), delta ] },  format!("$min_{}", event) ] }, { "$gt": [ format!("$max_{}", event), { "$min": s_vec } ] } ] };
 	}
 	return mongo_stmt;
 }
@@ -333,13 +415,13 @@ pub fn diamond_phi_t(exp: TelExp) -> Document {
 
 	let mut mongo_stmt = doc!{};
 	if e != "" {
-		mongo_stmt = doc!{ "$and": [ { "$gte": [ format!("${}", e), format!("$min_{}", event)] }, { "$gt": [ format!("$max_{}", event),  { "$add": [ format!("${}", t), delta ] } ] } ] };
+		mongo_stmt = doc!{ "$and": [ { "$gt": [ format!("${}", e), format!("$min_{}", event)] }, { "$gt": [ format!("$max_{}", event),  { "$add": [ format!("${}", t), delta ] } ] } ] };
 	} else {
 		let mut e_vec = vec![];
 		for x in exp.events {
 			e_vec.push(format!("$max_{}", x));
 		}
-		mongo_stmt = doc!{ "$and": [ { "$gte": [ { "$max": e_vec }, format!("$min_{}", event)] }, { "$gt": [ format!("$max_{}", event),  { "$add": [ format!("${}", t), delta ] } ] } ] };
+		mongo_stmt = doc!{ "$and": [ { "$gt": [ { "$max": e_vec }, format!("$min_{}", event)] }, { "$gt": [ format!("$max_{}", event),  { "$add": [ format!("${}", t), delta ] } ] } ] };
 	}
 	return mongo_stmt;
 }
