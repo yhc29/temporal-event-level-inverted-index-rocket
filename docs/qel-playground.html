@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Interactive BEST records and QEL cohort query playground for GTC and PGES phenotypes.">
+<title>QEL Cohort Playground — Synthetic BEST Records</title>
+<style>
+  :root {
+    --bg: #f5f3ee;
+    --paper: #fffdf9;
+    --ink: #18212b;
+    --ink-soft: #3f4b57;
+    --muted: #6b7480;
+    --line: #ddd6cb;
+    --line-strong: #c9c0b2;
+    --accent: #0b6b63;
+    --accent-soft: #e3f2ef;
+    --amber: #a85d08;
+    --amber-soft: #fbefdd;
+    --blue: #2459a8;
+    --blue-soft: #e8eef9;
+    --red: #b13a31;
+    --red-soft: #fbe8e5;
+    --purple: #6941a5;
+    --purple-soft: #efe8f8;
+    --green: #1e7a4b;
+    --green-soft: #e5f3ea;
+    --shadow: 0 18px 50px rgba(24, 33, 43, .08);
+    --radius: 18px;
+    --max: 1360px;
+    --label-w: 38px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 4% -4%, rgba(11,107,99,.11), transparent 34rem),
+      radial-gradient(circle at 98% 8%, rgba(168,93,8,.08), transparent 28rem),
+      var(--bg);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  code, pre, .mono { font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace; }
+  .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+  .skip {
+    position: absolute; left: -999px; top: 8px; z-index: 100;
+    background: var(--ink); color: white; padding: 10px 14px; border-radius: 8px;
+  }
+  .skip:focus { left: 8px; }
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(245,243,238,.88);
+    border-bottom: 1px solid rgba(201,192,178,.55);
+    backdrop-filter: blur(14px);
+  }
+  .topbar-inner { display: flex; align-items: center; gap: 18px; min-height: 66px; }
+  .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: var(--ink); margin-right: auto; }
+  .brand-mark {
+    display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;
+    background: var(--ink); color: #fff; font: 700 18px/1 ui-serif, Georgia, serif;
+    box-shadow: 0 6px 16px rgba(24,33,43,.18);
+  }
+  .brand b { display: block; font-size: 14px; letter-spacing: .03em; }
+  .brand small { display: block; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .back-link { color: var(--ink-soft); text-decoration: none; font-size: 13px; font-weight: 650; }
+  .back-link:hover { color: var(--accent); }
+  .hero { padding: 48px 0 26px; display: flex; align-items: end; justify-content: space-between; gap: 32px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px;
+    color: var(--accent); font-size: 12px; font-weight: 750;
+    letter-spacing: .14em; text-transform: uppercase;
+  }
+  .eyebrow::before { content: ""; width: 26px; height: 2px; background: currentColor; border-radius: 2px; }
+  h1, h2, h3 {
+    font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    letter-spacing: -.025em;
+  }
+  h1 { max-width: 840px; margin: 14px 0 12px; font-size: clamp(38px, 5vw, 64px); line-height: 1.02; font-weight: 650; }
+  .lede { max-width: 800px; margin: 0; color: var(--ink-soft); font-size: 17px; line-height: 1.55; }
+  .hero-badge {
+    flex: 0 0 auto; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--paper); box-shadow: var(--shadow); color: var(--ink-soft); font-size: 12px;
+  }
+  .hero-badge strong { display: block; color: var(--accent); font-size: 13px; }
+  .panel {
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .query-panel { padding: 20px; margin-bottom: 18px; }
+  .query-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+  .panel-label { color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+  .segmented {
+    display: inline-flex; padding: 4px; margin-top: 8px; gap: 3px;
+    border: 1px solid var(--line); border-radius: 999px; background: #f2eee7;
+  }
+  .segmented button {
+    appearance: none; border: 0; background: transparent; color: var(--ink-soft);
+    border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .segmented button[aria-pressed="true"] { background: var(--ink); color: #fff; box-shadow: 0 4px 12px rgba(24,33,43,.16); }
+  .query-actions { display: flex; gap: 9px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 1px solid transparent; border-radius: 999px; padding: 11px 17px;
+    font-size: 13px; font-weight: 700; line-height: 1.2; cursor: pointer; text-decoration: none;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 9px 22px rgba(11,107,99,.22); }
+  .btn-primary:hover { background: #085b54; }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+  .btn-ghost:hover { background: #f7f3ec; }
+  .btn-small { padding: 8px 12px; font-size: 12px; }
+  .formula-bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-top: 16px; padding: 16px 18px; border-radius: 14px;
+    background: #1c252e; color: #f4f1ea; border: 1px solid #111820;
+    overflow-x: auto;
+  }
+  .formula {
+    font-family: "STIX Two Math", "Cambria Math", "Times New Roman", ui-serif, Georgia, serif;
+    font-size: clamp(18px, 2.2vw, 26px); line-height: 1.7; white-space: nowrap; flex: 1 1 auto;
+  }
+  .formula sub { font-size: .58em; }
+  .formula .op { color: #8bd4c8; padding: 0 .12em; }
+  .formula .q { color: #f0c26a; }
+  .formula .br { color: #8f9aa6; padding: 0 .12em; }
+  .formula .ev { font-weight: 700; padding: 0 .05em; }
+  .formula .ev.s { color: #8ab8ff; }
+  .formula .ev.t { color: #ff9f98; }
+  .formula .ev.c { color: #c9a6ff; }
+  .formula .ev.p { color: #7ee0a9; }
+  .formula .paren { color: #b6c0ca; }
+  .formula-chip {
+    flex: 0 0 auto; border: 1px solid rgba(240,194,106,.42); color: #f0c26a;
+    background: rgba(240,194,106,.08); border-radius: 999px; padding: 5px 10px;
+    font: 650 11.5px/1.2 "SFMono-Regular", ui-monospace, Menlo, monospace; white-space: nowrap;
+  }
+  .controls { display: grid; grid-template-columns: minmax(260px, 440px) 1fr; gap: 18px; align-items: end; margin-top: 15px; }
+  .slider-label { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-soft); font-size: 12.5px; font-weight: 650; }
+  .slider-label b { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type="range"] {
+    width: 100%; margin: 10px 0 0; accent-color: var(--accent); cursor: pointer;
+  }
+  input[type="range"]:disabled { opacity: .35; cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0; }
+  .hint strong { color: var(--ink-soft); }
+  .summary {
+    display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 18px;
+  }
+  .summary-card { padding: 17px 18px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); }
+  .summary-card strong { display: block; font: 650 clamp(26px, 3vw, 38px)/1 ui-serif, Georgia, serif; letter-spacing: -.03em; }
+  .summary-card span { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+  .summary-card.accent { background: var(--accent-soft); border-color: rgba(11,107,99,.18); }
+  .summary-card.accent strong { color: var(--accent); }
+  .summary-card.runtime strong { font-size: clamp(22px, 2.5vw, 30px); padding-top: 5px; }
+  .workspace { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(400px, .8fr); gap: 18px; align-items: start; }
+  .records-panel { min-width: 0; }
+  .section-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 13px; }
+  .section-head h2 { margin: 0; font-size: 29px; line-height: 1.1; font-weight: 650; }
+  .section-head p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .record-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+  .record-card {
+    appearance: none; text-align: left; color: inherit; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 15px; background: var(--paper);
+    padding: 14px 15px 12px; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    min-width: 0;
+  }
+  .record-card:hover { transform: translateY(-1px); border-color: var(--line-strong); box-shadow: 0 10px 26px rgba(24,33,43,.06); }
+  .record-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(11,107,99,.13); }
+  .record-card.is-match { background: linear-gradient(180deg, #fffdf9, #f0f8f4); }
+  .record-card.is-miss { opacity: .78; }
+  .record-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; margin-bottom: 9px; }
+  .record-id { display: block; color: var(--muted); font: 700 11px/1.2 "SFMono-Regular", ui-monospace, Menlo, monospace; letter-spacing: .08em; }
+  .record-head h3 { margin: 3px 0 0; font-size: 16.5px; line-height: 1.15; }
+  .badge {
+    flex: 0 0 auto; display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 4px 8px; font-size: 10.5px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge.pending { color: var(--muted); background: #f2eee7; border-color: var(--line); }
+  .badge.pass { color: var(--green); background: var(--green-soft); border-color: rgba(30,122,75,.16); }
+  .badge.fail { color: var(--red); background: var(--red-soft); border-color: rgba(177,58,49,.14); }
+  .record-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+  .record-foot span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .record-count { flex: 0 0 auto; font-family: "SFMono-Regular", ui-monospace, Menlo, monospace; }
+  .audit-panel { position: sticky; top: 84px; padding: 20px; max-height: calc(100vh - 104px); overflow: auto; }
+  .audit-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 13px; }
+  .audit-head h2 { margin: 2px 0 0; font-size: 25px; line-height: 1.1; }
+  .audit-head .record-id { margin-bottom: 2px; }
+  .witness-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 7px; margin: 14px 0; }
+  .witness {
+    padding: 9px 8px; border: 1px solid var(--line); border-radius: 10px; background: #faf7f1; text-align: center;
+  }
+  .witness span { display: block; color: var(--muted); font-size: 9.5px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+  .witness strong { display: block; margin-top: 3px; font: 650 18px/1 "SFMono-Regular", ui-monospace, Menlo, monospace; }
+  .witness.s strong { color: var(--blue); }
+  .witness.t strong { color: var(--red); }
+  .witness.p strong { color: var(--green); }
+  .witness.c strong { color: var(--purple); }
+  .match-picker { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 13px; }
+  .match-picker button {
+    appearance: none; border: 1px solid var(--line); background: #faf7f1; color: var(--ink-soft);
+    border-radius: 999px; padding: 5px 9px; font-size: 10.5px; font-weight: 700; cursor: pointer;
+  }
+  .match-picker button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .timeline {
+    border: 1px solid var(--line); border-radius: 14px; background: #fffdf9; padding: 13px 13px 10px;
+  }
+  .timeline.mini { border: 0; background: transparent; padding: 0; }
+  .timeline.mini .tl-labels { grid-template-rows: repeat(4, 11px); gap: 3px; }
+  .timeline.mini .tl-chart { grid-template-rows: repeat(4, 11px); gap: 3px; }
+  .timeline.mini .tl-track { border-radius: 3px; }
+  .timeline.mini .tl-bar { border-radius: 3px; }
+  .timeline.mini .tl-bar span { display: none; }
+  .tl-axis-row { display: grid; grid-template-columns: var(--label-w) 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .tl-axis { position: relative; height: 17px; color: var(--muted); font-size: 10px; }
+  .tl-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .tl-axis span:first-child { transform: none; }
+  .tl-axis span:last-child { transform: translateX(-100%); }
+  .tl-content { display: grid; grid-template-columns: var(--label-w) 1fr; gap: 8px; }
+  .tl-labels { display: grid; grid-template-rows: repeat(4, 17px); gap: 5px; align-items: center; }
+  .tl-labels span { font: 700 10.5px/1 "SFMono-Regular", ui-monospace, Menlo, monospace; color: var(--ink-soft); }
+  .tl-chart { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(4, 17px); gap: 5px; width: 100%; min-width: 0; }
+  .tl-row { min-width: 0; height: 100%; }
+  .tl-track { position: relative; width: 100%; height: 100%; min-width: 0; border-radius: 4px; background: #f2eee7; overflow: hidden; }
+  .tl-bar { position: absolute; top: 0; bottom: 0; border-radius: 4px; min-width: 3px; display: flex; align-items: center; overflow: hidden; }
+  .tl-bar span { color: rgba(255,255,255,.94); font: 650 9px/1 "SFMono-Regular", ui-monospace, Menlo, monospace; padding: 0 4px; white-space: nowrap; }
+  .tl-bar.s { background: var(--blue); }
+  .tl-bar.t { background: var(--red); }
+  .tl-bar.c { background: var(--purple); }
+  .tl-bar.p { background: var(--green); }
+  .tl-bar.used { outline: 2px solid #f0c26a; outline-offset: -2px; }
+  .tl-none { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed #d7d0c5; }
+  .tl-markers { position: absolute; inset: 0; pointer-events: none; }
+  .tl-marker { position: absolute; top: -18px; bottom: 0; border-left: 1px dashed rgba(24,33,43,.38); }
+  .tl-marker span {
+    position: absolute; top: 0; left: 4px; transform: translateY(-100%);
+    background: #fffdf9; border: 1px solid var(--line); border-radius: 5px;
+    color: var(--ink-soft); font: 650 9px/1 "SFMono-Regular", ui-monospace, Menlo, monospace;
+    padding: 3px 4px; white-space: nowrap;
+  }
+  .timeline-caption { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 10.5px; }
+  .trace { margin-top: 14px; }
+  .trace h3, .audit-section h3 { margin: 0 0 8px; font-size: 15px; line-height: 1.2; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: #fffdf9; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { color: var(--muted); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; background: #faf7f1; font-weight: 750; }
+  tr:last-child td { border-bottom: 0; }
+  td code { font-size: 11.5px; }
+  .pass { color: var(--green); font-weight: 750; }
+  .fail { color: var(--red); font-weight: 750; }
+  .audit-section { margin-top: 16px; }
+  .diagnosis {
+    padding: 14px 15px; border-radius: 12px; border: 1px solid rgba(177,58,49,.16);
+    background: var(--red-soft); color: #76251f; font-size: 13px; line-height: 1.5;
+  }
+  .diagnosis strong { display: block; margin-bottom: 3px; color: #5f1c17; }
+  .note-box {
+    padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: #faf7f1; color: var(--ink-soft); font-size: 12px; line-height: 1.5;
+  }
+  .note-box strong { color: var(--ink); }
+  .explainer { margin: 64px 0 20px; }
+  .explainer-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+  .explain-card { padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); }
+  .explain-card h3 { margin: 0 0 7px; font-size: 17px; }
+  .explain-card p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+  .footer { border-top: 1px solid var(--line); padding: 28px 0 42px; color: var(--muted); font-size: 12px; }
+  .footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+  .footer a { color: var(--ink-soft); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  @media (max-width: 1120px) {
+    .workspace { grid-template-columns: 1fr; }
+    .audit-panel { position: static; max-height: none; }
+  }
+  @media (max-width: 840px) {
+    .hero { display: block; }
+    .hero-badge { display: inline-block; margin-top: 18px; }
+    .controls { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .record-grid { grid-template-columns: 1fr; }
+    .explainer-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .wrap { width: min(var(--max), calc(100% - 24px)); }
+    .topbar .back-link { display: none; }
+    .query-actions { width: 100%; }
+    .query-actions .btn { flex: 1; }
+    .summary { grid-template-columns: 1fr 1fr; }
+    .witness-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .formula-bar { align-items: flex-start; }
+  }
+  @media print {
+    .topbar, .query-actions, .back-link, .footer { display: none; }
+    body { background: white; }
+    .panel, .record-card, .audit-panel { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="qel-playground.html" aria-label="QEL cohort playground">
+      <span class="brand-mark">Q</span>
+      <span><b>QEL Cohort Playground</b><small>Synthetic BEST records</small></span>
+    </a>
+    <a class="back-link" href="qel-reproducibility.html">← Reproducibility guide</a>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Interactive demo · QEL / BEST</div>
+      <h1>Build a cohort from ten annotated timelines</h1>
+      <p class="lede">
+        Each card is a synthetic BEST record. Choose GTC or PGES, adjust the suppression filter,
+        run the query, and inspect the witness that makes a record satisfy the temporal formula.
+      </p>
+    </div>
+    <div class="hero-badge">
+      <strong>Synthetic data</strong>
+      10 records · 0–180 s · closed intervals<br>
+      Not the paper's clinical cohort
+    </div>
+  </section>
+
+  <section class="panel query-panel" aria-labelledby="query-title">
+    <div class="query-top">
+      <div>
+        <div class="panel-label" id="query-title">Query builder</div>
+        <div class="segmented" role="group" aria-label="Choose a phenotype preset">
+          <button type="button" data-preset="pges" aria-pressed="true">PGES</button>
+          <button type="button" data-preset="gtc" aria-pressed="false">GTC</button>
+        </div>
+      </div>
+      <div class="query-actions">
+        <button type="button" class="btn btn-primary" id="runBtn">Run cohort query</button>
+        <button type="button" class="btn btn-ghost" id="resetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="formula-bar">
+      <div class="formula" id="formulaBar" aria-live="polite"></div>
+      <span class="formula-chip" id="formulaChip" hidden></span>
+    </div>
+
+    <div class="controls">
+      <div>
+        <label class="slider-label" for="cMin">
+          <span id="cMinLabel">Suppression witness filter</span>
+          <span>c ≥ <b id="cMinVal">0</b> s</span>
+        </label>
+        <input id="cMin" type="range" min="0" max="20" step="1" value="0">
+      </div>
+      <p class="hint" id="queryHint"></p>
+    </div>
+  </section>
+
+  <section class="summary" aria-label="Query result summary" aria-live="polite">
+    <div class="summary-card accent"><strong id="sumPatients">—</strong><span>matched patients</span></div>
+    <div class="summary-card"><strong id="sumPatterns">—</strong><span>matched patterns</span></div>
+    <div class="summary-card"><strong id="sumRecords">10</strong><span>records evaluated</span></div>
+    <div class="summary-card runtime"><strong id="sumRuntime">—</strong><span>browser runtime</span></div>
+  </section>
+
+  <div class="workspace">
+    <section class="records-panel" aria-labelledby="records-title">
+      <div class="section-head">
+        <div>
+          <h2 id="records-title">BEST records</h2>
+          <p>Click a record to inspect its interval supports and witness.</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-small" id="downloadBtn">Download dataset</button>
+      </div>
+      <div class="record-grid" id="recordGrid"></div>
+    </section>
+
+    <aside class="panel audit-panel" id="auditPanel" aria-live="polite" aria-label="Selected record audit">
+      <div class="audit-head">
+        <div>
+          <span class="record-id">Audit</span>
+          <h2>Select a record</h2>
+        </div>
+      </div>
+      <div class="note-box">Run the query and select a record to see its witness and support checks.</div>
+    </aside>
+  </div>
+
+  <section class="explainer" aria-labelledby="explain-title">
+    <div class="section-head">
+      <div>
+        <h2 id="explain-title">What the playground computes</h2>
+        <p>Ten records are enough to expose the interesting failure modes.</p>
+      </div>
+      <a class="btn btn-ghost btn-small" href="qel-reproducibility.html">Read the full guide</a>
+    </div>
+    <div class="explainer-grid">
+      <article class="explain-card">
+        <h3>Interval-ensemble semantics</h3>
+        <p>Each label is a finite union of closed intervals. Displacement, ◊, and □ are implemented as endpoint translation, future-window dilation, and future-window erosion; conjunction is intersection.</p>
+      </article>
+      <article class="explain-card">
+        <h3>Finite witnesses, not sampling</h3>
+        <p>For each seizure episode the demo enumerates boundary-derived candidates for x, a, b, and c, then verifies every candidate with the interval semantics. The preferred witness aligns the tonic window with the first clonic onset.</p>
+      </article>
+      <article class="explain-card">
+        <h3>Deliberate edge cases</h3>
+        <p>P03 has no P, P04 has a 3 s postictal gap, P05 reverses T and C, P06 has brief suppression, P08 has pre-ictal P, and P09 has T outside S. Change the preset or filter to see which records survive.</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div>Synthetic BEST data embedded in this page. No server, database, or external dependency.</div>
+    <div><a href="qel-reproducibility.html">Reproducibility guide</a> · <a href="https://github.com/yhc29/temporal-event-level-inverted-index-rocket">Source repository</a></div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+
+  const EPS = 1e-6;
+  const TOL = 1e-9;
+  const MAX_TIME = 180;
+
+  /* ---------- interval ensembles ---------- */
+  function iv(a, b, lc = true, rc = true) { return { a, b, lc, rc }; }
+  function isEmpty(x) {
+    return x.a > x.b + TOL || (Math.abs(x.a - x.b) <= TOL && !(x.lc && x.rc));
+  }
+  function norm(list) {
+    const xs = list.filter(x => !isEmpty(x)).map(x => ({ ...x }));
+    xs.sort((u, v) => u.a - v.a || (u.lc ? 0 : 1) - (v.lc ? 0 : 1));
+    const out = [];
+    for (const cur of xs) {
+      if (!out.length) { out.push(cur); continue; }
+      const last = out[out.length - 1];
+      let merge = false;
+      if (cur.a < last.b - TOL) merge = true;
+      else if (Math.abs(cur.a - last.b) <= TOL) merge = last.rc || cur.lc;
+      if (merge) {
+        if (cur.b > last.b + TOL) { last.b = cur.b; last.rc = cur.rc; }
+        else if (Math.abs(cur.b - last.b) <= TOL) { last.rc = last.rc || cur.rc; }
+      } else {
+        out.push(cur);
+      }
+    }
+    return out;
+  }
+  function contains(IE, x) {
+    return IE.some(i =>
+      (i.lc ? x >= i.a - TOL : x > i.a + TOL) &&
+      (i.rc ? x <= i.b + TOL : x < i.b - TOL)
+    );
+  }
+  function displace(IE, q) {
+    return norm(IE.map(i => ({ ...i, a: i.a - q, b: i.b - q })));
+  }
+  function dilate(IE, r) {
+    return norm(IE.map(i => ({ ...i, a: i.a - r, lc: false })));
+  }
+  function erode(IE, r) {
+    return norm(IE.map(i => ({ ...i, b: i.b - r, rc: true })));
+  }
+  function intersect(A, B) {
+    const out = [];
+    for (const a of A) for (const b of B) {
+      const start = Math.max(a.a, b.a);
+      const end = Math.min(a.b, b.b);
+      const lc = a.a > b.a + TOL ? a.lc : (b.a > a.a + TOL ? b.lc : a.lc && b.lc);
+      const rc = a.b < b.b - TOL ? a.rc : (b.b < a.b - TOL ? b.rc : a.rc && b.rc);
+      const c = iv(start, end, lc, rc);
+      if (!isEmpty(c)) out.push(c);
+    }
+    return norm(out);
+  }
+  function union(A, B) { return norm([...A, ...B]); }
+  function complement(IE) {
+    const s = norm(IE);
+    if (!s.length) return [iv(-Infinity, Infinity, false, false)];
+    const out = [iv(-Infinity, s[0].a, false, !s[0].lc)];
+    for (let i = 0; i < s.length - 1; i++) {
+      out.push(iv(s[i].b, s[i + 1].a, !s[i].rc, !s[i + 1].lc));
+    }
+    out.push(iv(s[s.length - 1].b, Infinity, !s[s.length - 1].rc, false));
+    return norm(out);
+  }
+  function intervalAt(IE, p) {
+    if (p == null) return null;
+    return IE.find(i =>
+      (i.lc ? p >= i.a - TOL : p > i.a + TOL) &&
+      (i.rc ? p <= i.b + TOL : p < i.b - TOL)
+    ) || null;
+  }
+  function nextPoint(IE, x) {
+    const s = norm(IE);
+    for (const i of s) {
+      if (i.b < x - TOL) continue;
+      if (Math.abs(i.b - x) <= TOL && !i.rc) continue;
+      if (x < i.a - TOL) return i.a;
+      if (x <= i.b + TOL) return Math.max(x, i.a);
+    }
+    return null;
+  }
+  function componentEnd(IE, x) {
+    for (const i of IE) {
+      const inLeft = i.lc ? x >= i.a - TOL : x > i.a + TOL;
+      const inRight = i.rc ? x <= i.b + TOL : x < i.b - TOL;
+      if (inLeft && inRight && x < i.b - TOL) return i.b;
+    }
+    return null;
+  }
+  function pRoom(P, y) {
+    for (const i of P) {
+      const inLeft = i.lc ? y >= i.a - TOL : y > i.a + TOL;
+      const inRight = i.rc ? y <= i.b + TOL : y < i.b - TOL;
+      if (inLeft && inRight) {
+        const room = i.b - y;
+        return room > EPS ? room : null;
+      }
+    }
+    return null;
+  }
+
+  /* ---------- QEL expression AST ---------- */
+  const V = name => ({ type: "var", name });
+  const add = (left, right) => ({ type: "add", left, right });
+  const A = label => ({ type: "atom", label });
+  const box = (t, child) => ({ type: "box", t, child });
+  const dia = (t, child) => ({ type: "diamond", t, child });
+  const shift = (u, child) => ({ type: "shift", u, child });
+  const and = (left, right) => ({ type: "and", left, right });
+  const or = (left, right) => ({ type: "or", left, right });
+  const not = child => ({ type: "not", child });
+
+  const GTC_BODY = and(
+    box(add(V("a"), V("b")), A("S")),
+    and(
+      dia(V("a"), A("T")),
+      shift(V("a"), dia(V("b"), A("C")))
+    )
+  );
+  const PGES_BODY = and(
+    box(add(V("a"), V("b")), A("S")),
+    and(
+      dia(V("a"), A("T")),
+      and(
+        shift(V("a"), dia(V("b"), A("C"))),
+        shift(add(V("a"), V("b")), box(V("c"), A("P")))
+      )
+    )
+  );
+
+  function evalTerm(t, env) {
+    if (typeof t === "number") return t;
+    if (t.type === "var") return env[t.name];
+    if (t.type === "add") return evalTerm(t.left, env) + evalTerm(t.right, env);
+    throw new Error("Unknown term");
+  }
+  function support(e, env, record) {
+    switch (e.type) {
+      case "atom": return record.supports[e.label] || [];
+      case "and": return intersect(support(e.left, env, record), support(e.right, env, record));
+      case "or": return union(support(e.left, env, record), support(e.right, env, record));
+      case "not": return complement(support(e.child, env, record));
+      case "box": return erode(support(e.child, env, record), evalTerm(e.t, env));
+      case "diamond": return dilate(support(e.child, env, record), evalTerm(e.t, env));
+      case "shift": return displace(support(e.child, env, record), evalTerm(e.u, env));
+      default: throw new Error("Unknown expression");
+    }
+  }
+
+  /* ---------- static BEST dataset ---------- */
+  const RAW_DATASET = [
+    {
+      id: "P01",
+      title: "Classic PGES",
+      note: "Tonic and clonic phases are nested in S; P begins exactly at the seizure offset.",
+      events: { S: [[10, 70]], T: [[10, 30]], C: [[32, 68]], P: [[70, 115]] }
+    },
+    {
+      id: "P02",
+      title: "Long suppression",
+      note: "A longer seizure with a 50 s postictal suppression interval.",
+      events: { S: [[20, 95]], T: [[20, 42]], C: [[46, 90]], P: [[95, 145]] }
+    },
+    {
+      id: "P03",
+      title: "GTC without suppression",
+      note: "The seizure has both phases but no P annotation, so PGES must fail.",
+      events: { S: [[5, 55]], T: [[8, 22]], C: [[30, 52]], P: [] }
+    },
+    {
+      id: "P04",
+      title: "Delayed suppression",
+      note: "P starts 3 s after seizure offset. Strict PGES anchors P at x+a+b, so the gap breaks the box.",
+      events: { S: [[15, 75]], T: [[15, 35]], C: [[40, 72]], P: [[78, 120]] }
+    },
+    {
+      id: "P05",
+      title: "Reversed phases",
+      note: "C occurs before T. No clonic window can follow the tonic window.",
+      events: { S: [[40, 100]], T: [[60, 78]], C: [[45, 55]], P: [[100, 140]] }
+    },
+    {
+      id: "P06",
+      title: "Brief suppression",
+      note: "The postictal P is only 4 s long. It passes the base PGES query but fails a c ≥ 5 s filter.",
+      events: { S: [[10, 40]], T: [[10, 20]], C: [[22, 38]], P: [[40, 44]] }
+    },
+    {
+      id: "P07",
+      title: "Two seizures, one PGES",
+      note: "The first seizure has suppression; the second has none. GTC matches both, PGES matches one.",
+      events: { S: [[10, 50], [120, 160]], T: [[10, 20], [120, 130]], C: [[25, 48], [135, 158]], P: [[50, 90]] }
+    },
+    {
+      id: "P08",
+      title: "Pre-ictal suppression",
+      note: "P ends before the seizure starts. It is not suppression after the seizure offset.",
+      events: { S: [[20, 80]], T: [[20, 40]], C: [[45, 75]], P: [[5, 15]] }
+    },
+    {
+      id: "P09",
+      title: "Tonic outside seizure",
+      note: "T lies completely before S, so no tonic occurrence is available after the seizure anchor.",
+      events: { S: [[10, 60]], T: [[0, 8]], C: [[35, 58]], P: [[60, 90]] }
+    },
+    {
+      id: "P10",
+      title: "Two PGES episodes",
+      note: "Both seizures have a qualifying tonic-clonic block and postictal suppression.",
+      events: { S: [[20, 70], [110, 155]], T: [[20, 35], [110, 125]], C: [[40, 68], [130, 152]], P: [[70, 105], [155, 180]] }
+    }
+  ];
+
+  const DATASET = RAW_DATASET.map(raw => {
+    const supports = {};
+    for (const [label, intervals] of Object.entries(raw.events)) {
+      supports[label] = norm(intervals.map(([a, b]) => iv(a, b)));
+    }
+    return { ...raw, supports, gtcBody: GTC_BODY, pgesBody: PGES_BODY };
+  });
+
+  /* ---------- witness search ---------- */
+  function findUsed(record, x, a, b, c, kind) {
+    const used = { S: null, T: null, C: null, P: null };
+    const S = record.supports.S || [];
+    const T = record.supports.T || [];
+    const C = record.supports.C || [];
+    const P = record.supports.P || [];
+    used.S = intervalAt(S, x);
+    used.T = intervalAt(T, nextPoint(T, x));
+    used.C = intervalAt(C, nextPoint(C, x + a));
+    if (kind === "pges") used.P = intervalAt(P, x + a + b);
+    return used;
+  }
+
+  function preferredWitness(record, kind, cMin, si) {
+    const S = record.supports.S || [];
+    const T = record.supports.T || [];
+    const C = record.supports.C || [];
+    const P = record.supports.P || [];
+    const sIv = S[si];
+    if (!sIv) return null;
+    const x = sIv.lc ? sIv.a : sIv.a + EPS;
+    if (!contains(S, x)) return null;
+    const sEnd = componentEnd(S, x);
+    if (sEnd == null) return null;
+    const R = sEnd - x;
+    if (R <= EPS) return null;
+
+    for (const cv of C) {
+      const a = cv.a - x;
+      if (!(a > EPS && a < R - EPS)) continue;
+      const b = R - a;
+      if (b <= EPS) continue;
+      const cStart = x + a;
+      const tNext = nextPoint(T, x);
+      if (tNext == null || tNext >= cStart - TOL) continue;
+      if (!contains(C, cStart)) continue;
+
+      let c = null;
+      if (kind === "pges") {
+        const room = pRoom(P, sEnd);
+        if (room == null) continue;
+        if (cMin > 0 && room + EPS < cMin) continue;
+        c = room;
+      }
+      const env = { x, a, b, c };
+      const body = kind === "pges" ? record.pgesBody : record.gtcBody;
+      const sup = support(body, env, record);
+      if (contains(sup, x)) {
+        return {
+          patientId: record.id,
+          sIndex: si,
+          x, a, b, c,
+          y: sEnd,
+          used: findUsed(record, x, a, b, c, kind),
+          support: sup,
+          preferred: true
+        };
+      }
+    }
+    return null;
+  }
+
+  function findMatches(record, query) {
+    const kind = query.kind;
+    const cMin = query.cMin || 0;
+    const S = record.supports.S || [];
+    const T = record.supports.T || [];
+    const C = record.supports.C || [];
+    const P = record.supports.P || [];
+    const matches = [];
+
+    for (let si = 0; si < S.length; si++) {
+      const sIv = S[si];
+      const x = sIv.lc ? sIv.a : sIv.a + EPS;
+      if (!contains(S, x)) continue;
+
+      const pref = preferredWitness(record, kind, cMin, si);
+      if (pref) { matches.push(pref); continue; }
+
+      const sEnd = componentEnd(S, x);
+      if (sEnd == null) continue;
+      const R = sEnd - x;
+      if (R <= EPS) continue;
+
+      const tNext = nextPoint(T, x);
+      if (tNext == null) continue;
+
+      const aMin = Math.max(EPS, tNext - x + EPS);
+      const aSet = new Set();
+      const addA = v => {
+        if (Number.isFinite(v) && v > EPS / 2 && v < R - EPS / 2) aSet.add(+v.toFixed(6));
+      };
+      addA(EPS);
+      addA(aMin);
+      addA(R - EPS);
+      addA((aMin + R) / 2);
+      for (const cv of C) {
+        addA(cv.a - x + EPS);
+        addA(cv.a - x - EPS);
+        addA(cv.b - x + EPS);
+        addA(cv.b - x - EPS);
+      }
+
+      const as = [...aSet].sort((p, q) => p - q);
+      let found = false;
+      for (const a of as) {
+        if (found) break;
+        const cStart = x + a;
+        const cNext = nextPoint(C, cStart);
+        if (cNext == null) continue;
+        const bMin = Math.max(EPS, cNext - cStart + EPS);
+        const maxB = R - a;
+        if (bMin > maxB + EPS) continue;
+
+        const bSet = new Set();
+        const addB = v => {
+          if (Number.isFinite(v) && v > EPS / 2 && v <= maxB + EPS / 2) bSet.add(+v.toFixed(6));
+        };
+        addB(bMin);
+        addB(maxB);
+        addB((bMin + maxB) / 2);
+        if (kind === "pges") {
+          for (const pv of P) {
+            addB(pv.a - cStart + EPS);
+            addB(pv.a - cStart - EPS);
+            addB(pv.b - cStart - EPS);
+            addB(pv.b - cStart + EPS);
+          }
+        }
+
+        const bs = [...bSet].sort((p, q) => p - q);
+        for (const b of bs) {
+          const y = cStart + b;
+          let c = null;
+          if (kind === "pges") {
+            const room = pRoom(P, y);
+            if (room == null) continue;
+            if (cMin > 0 && room + EPS < cMin) continue;
+            c = room;
+          }
+          const env = { x, a, b, c };
+          const body = kind === "pges" ? record.pgesBody : record.gtcBody;
+          const sup = support(body, env, record);
+          if (contains(sup, x)) {
+            matches.push({
+              patientId: record.id,
+              sIndex: si,
+              x, a, b, c,
+              y,
+              used: findUsed(record, x, a, b, c, kind),
+              support: sup,
+              preferred: false
+            });
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+    return matches;
+  }
+
+  /* ---------- formatting ---------- */
+  function round6(n) { return Math.abs(n) < 1e-9 ? 0 : Math.round(n * 1e6) / 1e6; }
+  function fmt(n) {
+    if (n === Infinity) return "∞";
+    if (n === -Infinity) return "−∞";
+    const r = round6(n);
+    return Number.isInteger(r) ? String(r) : r.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  }
+  function fmtSeconds(n) { return `${fmt(n)} s`; }
+  function bracket(i) {
+    const left = i.lc ? "[" : "(";
+    const right = i.rc ? "]" : ")";
+    return `${left}${fmt(i.a)}, ${fmt(i.b)}${right}`;
+  }
+  function formatIE(IE) {
+    if (!IE || !IE.length) return "∅";
+    return IE.map(bracket).join(" ∪ ");
+  }
+  function countEvents(record) {
+    return Object.values(record.supports).reduce((n, IE) => n + IE.length, 0);
+  }
+
+  /* ---------- timeline rendering ---------- */
+  function pct(t) { return Math.max(0, Math.min(100, (t / MAX_TIME) * 100)); }
+  function timelineHTML(record, match, detail) {
+    const labels = ["S", "T", "C", "P"];
+    const rows = labels.map(label => {
+      const IE = record.supports[label] || [];
+      const bars = IE.map(i => {
+        const used = match && match.used && match.used[label] &&
+          Math.abs(match.used[label].a - i.a) < TOL &&
+          Math.abs(match.used[label].b - i.b) < TOL;
+        const left = pct(i.a);
+        const width = Math.max(0.6, pct(i.b) - pct(i.a));
+        return `<span class="tl-bar ${label.toLowerCase()}${used ? " used" : ""}" style="left:${left}%;width:${width}%" title="${label} ${fmt(i.a)}–${fmt(i.b)} s"><span>${label} ${fmt(i.a)}–${fmt(i.b)}</span></span>`;
+      }).join("");
+      return `<div class="tl-row"><div class="tl-track">${bars || '<span class="tl-none"></span>'}</div></div>`;
+    }).join("");
+
+    let axis = "";
+    if (detail) {
+      const ticks = [0, 30, 60, 90, 120, 150, 180];
+      axis = `<div class="tl-axis-row"><span></span><div class="tl-axis">${ticks.map(t => `<span style="left:${pct(t)}%">${t}${t === 180 ? " s" : ""}</span>`).join("")}</div></div>`;
+    }
+
+    let markers = "";
+    if (detail && match) {
+      const marks = [
+        { t: match.x, label: "x" },
+        { t: match.x + match.a, label: "x+a" },
+        { t: match.x + match.a + match.b, label: "x+a+b" }
+      ];
+      if (match.c != null) marks.push({ t: match.x + match.a + match.b + match.c, label: "+c" });
+      markers = `<div class="tl-markers">${marks.map(m => `<div class="tl-marker" style="left:${pct(m.t)}%"><span>${m.label}=${fmt(m.t)}</span></div>`).join("")}</div>`;
+    }
+
+    const summary = labels.map(label => `${label}: ${formatIE(record.supports[label] || [])}`).join("; ");
+    return `<div class="timeline${detail ? "" : " mini"}" role="img" aria-label="${summary}">
+      ${axis}
+      <div class="tl-content">
+        <div class="tl-labels" aria-hidden="true">${labels.map(l => `<span>${l}</span>`).join("")}</div>
+        <div class="tl-chart">${rows}${markers}</div>
+      </div>
+    </div>`;
+  }
+
+  /* ---------- state and UI ---------- */
+  const state = {
+    preset: "pges",
+    cMin: 0,
+    selectedId: "P01",
+    selectedMatch: 0,
+    results: null
+  };
+
+  const els = {
+    formulaBar: document.getElementById("formulaBar"),
+    formulaChip: document.getElementById("formulaChip"),
+    cMin: document.getElementById("cMin"),
+    cMinVal: document.getElementById("cMinVal"),
+    cMinLabel: document.getElementById("cMinLabel"),
+    queryHint: document.getElementById("queryHint"),
+    runBtn: document.getElementById("runBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    recordGrid: document.getElementById("recordGrid"),
+    auditPanel: document.getElementById("auditPanel"),
+    sumPatients: document.getElementById("sumPatients"),
+    sumPatterns: document.getElementById("sumPatterns"),
+    sumRecords: document.getElementById("sumRecords"),
+    sumRuntime: document.getElementById("sumRuntime"),
+    presetButtons: [...document.querySelectorAll("[data-preset]")],
+    downloadBtn: document.getElementById("downloadBtn")
+  };
+
+  function currentQuery() {
+    return { kind: state.preset, cMin: state.preset === "pges" ? state.cMin : 0 };
+  }
+
+  function runQuery() {
+    const query = currentQuery();
+    const t0 = performance.now();
+    const perRecord = DATASET.map(record => ({ record, matches: findMatches(record, query) }));
+    const matches = perRecord.reduce((n, item) => n + item.matches.length, 0);
+    const patients = perRecord.filter(item => item.matches.length > 0).length;
+    const elapsed = performance.now() - t0;
+    state.results = { query, perRecord, matches, patients, elapsed };
+
+    if (!perRecord.some(item => item.record.id === state.selectedId)) {
+      state.selectedId = perRecord[0].record.id;
+    }
+    state.selectedMatch = Math.min(state.selectedMatch, Math.max(0, matchCount(state.selectedId) - 1));
+    renderAll();
+  }
+
+  function matchCount(id) {
+    if (!state.results) return 0;
+    const item = state.results.perRecord.find(x => x.record.id === id);
+    return item ? item.matches.length : 0;
+  }
+
+  function renderFormula() {
+    const pges = state.preset === "pges";
+    const q = pges ? "∃x ∃a ∃b ∃c" : "∃x ∃a ∃b";
+    const pConj = pges
+      ? `<span class="op">∧</span><span class="paren">(</span><span class="op">□</span><sub>c</sub><span class="ev p">P</span><span class="paren">)</span><sub>a+b</sub>`
+      : "";
+    els.formulaBar.innerHTML = `
+      <span class="q">${q}</span>
+      <span class="br">[</span>
+      <span class="op">□</span><sub>a+b</sub><span class="ev s">S</span>
+      <span class="op">∧</span>
+      <span class="op">◊</span><sub>a</sub><span class="ev t">T</span>
+      <span class="op">∧</span>
+      <span class="paren">(</span><span class="op">◊</span><sub>b</sub><span class="ev c">C</span><span class="paren">)</span><sub>a</sub>
+      ${pConj}
+      <span class="br">]</span><span class="q">x</span>`;
+
+    if (pges && state.cMin > 0) {
+      els.formulaChip.hidden = false;
+      els.formulaChip.textContent = `witness filter: c ≥ ${state.cMin} s`;
+    } else if (!pges) {
+      els.formulaChip.hidden = false;
+      els.formulaChip.textContent = "P conjunct removed";
+    } else {
+      els.formulaChip.hidden = true;
+      els.formulaChip.textContent = "";
+    }
+
+    els.cMin.disabled = !pges;
+    els.cMinLabel.textContent = pges ? "Suppression witness filter" : "Suppression filter (PGES only)";
+    els.cMinVal.textContent = pges ? String(state.cMin) : "—";
+    els.queryHint.innerHTML = pges
+      ? "<strong>PGES:</strong> search S-onset anchors and durations a, b, c; T must occur in the tonic window, C in the clonic window, and P must persist immediately at the chosen seizure offset. The slider adds a witness filter c ≥ n seconds. Patterns are counted per qualifying seizure episode."
+      : "<strong>GTC:</strong> keep the first three conjuncts only. The record must contain a continuous S block with T in the first a and C in the next b. The suppression P and the c filter are removed.";
+  }
+
+  function renderSummary() {
+    if (!state.results) {
+      els.sumPatients.textContent = "—";
+      els.sumPatterns.textContent = "—";
+      els.sumRuntime.textContent = "—";
+      return;
+    }
+    els.sumPatients.textContent = `${state.results.patients} / ${DATASET.length}`;
+    els.sumPatterns.textContent = String(state.results.matches);
+    els.sumRuntime.textContent = `${state.results.elapsed.toFixed(2)} ms`;
+  }
+
+  function renderRecordGrid() {
+    els.recordGrid.innerHTML = DATASET.map(record => {
+      const item = state.results ? state.results.perRecord.find(x => x.record.id === record.id) : null;
+      const matches = item ? item.matches : null;
+      let badge = '<span class="badge pending">pending</span>';
+      if (matches) {
+        badge = matches.length
+          ? `<span class="badge pass">${matches.length} pattern${matches.length > 1 ? "s" : ""}</span>`
+          : '<span class="badge fail">no match</span>';
+      }
+      const selected = record.id === state.selectedId;
+      const classes = ["record-card"];
+      if (selected) classes.push("is-selected");
+      if (matches && matches.length) classes.push("is-match");
+      if (matches && !matches.length) classes.push("is-miss");
+      return `<button type="button" class="${classes.join(" ")}" data-record="${record.id}" aria-pressed="${selected}">
+        <div class="record-head">
+          <div><span class="record-id">${record.id}</span><h3>${record.title}</h3></div>
+          ${badge}
+        </div>
+        ${timelineHTML(record, null, false)}
+        <div class="record-foot"><span>${record.note}</span><span class="record-count">${countEvents(record)} iv</span></div>
+      </button>`;
+    }).join("");
+  }
+
+  function traceRows(record, match, kind) {
+    const env = { x: match.x, a: match.a, b: match.b, c: match.c };
+    const rows = [];
+    const addRow = (condition, expr, point) => {
+      const sup = support(expr, env, record);
+      rows.push({ condition, support: sup, point, pass: contains(sup, point) });
+    };
+    addRow(`□<sub>${fmt(match.a + match.b)}</sub>S`, box(add(V("a"), V("b")), A("S")), match.x);
+    addRow(`◊<sub>${fmt(match.a)}</sub>T`, dia(V("a"), A("T")), match.x);
+    addRow(`(◊<sub>${fmt(match.b)}</sub>C)<sub>${fmt(match.a)}</sub>`, shift(V("a"), dia(V("b"), A("C"))), match.x);
+    if (kind === "pges") {
+      addRow(`(□<sub>${fmt(match.c)}</sub>P)<sub>${fmt(match.a + match.b)}</sub>`, shift(add(V("a"), V("b")), box(V("c"), A("P"))), match.x);
+    }
+    return rows;
+  }
+
+  function diagnose(record, query) {
+    const S = record.supports.S || [];
+    const T = record.supports.T || [];
+    const C = record.supports.C || [];
+    const P = record.supports.P || [];
+    if (!S.length) return "No seizure interval S is annotated in this BEST.";
+    if (!T.length) return "No tonic phase T is annotated in this BEST.";
+    if (!C.length) return "No clonic phase C is annotated in this BEST.";
+
+    for (const s of S) {
+      const x = s.a;
+      const tAfter = T.filter(t => t.b > x + TOL);
+      if (!tAfter.length) return "The tonic phase lies outside the seizure interval; no T occurrence is available after the anchor.";
+      const t = tAfter[0];
+      const cAfter = C.filter(c => c.b > x + TOL);
+      if (!cAfter.length) return "No clonic phase C occurs after the seizure anchor.";
+      if (cAfter[0].b <= t.a + TOL) return "The clonic phase is ordered before the tonic phase, so no a can place T before C.";
+    }
+
+    if (query.kind === "pges") {
+      if (!P.length) return "No suppression phase P is annotated; the PGES conjunct cannot be satisfied.";
+      const relaxed = findMatches(record, { kind: "pges", cMin: 0 });
+      if (relaxed.length && query.cMin > 0) {
+        const best = Math.max(...relaxed.map(m => m.c));
+        return `A PGES witness exists with c = ${fmt(best)} s, but the current witness filter requires c ≥ ${query.cMin} s. Lower the filter to include this record.`;
+      }
+      for (const s of S) {
+        const sEnd = s.b;
+        const pAfter = P.find(p => p.a >= sEnd - TOL);
+        if (pAfter) return `The suppression phase starts at ${fmt(pAfter.a)} s, after the chosen seizure offset at ${fmt(sEnd)} s. Strict PGES anchors P exactly at x+a+b, so a gap breaks the box condition.`;
+        const pBefore = P.find(p => p.b <= sEnd + TOL);
+        if (pBefore) return `The suppression phase is not active after the seizure offset (it ends at ${fmt(pBefore.b)} s). The PGES conjunct requires P to hold immediately after x+a+b.`;
+      }
+    }
+    return "No assignment of x, a, b, and c satisfies all conjuncts. Inspect the timeline and the support checks in the reproducibility guide.";
+  }
+
+  function renderAudit() {
+    const record = DATASET.find(r => r.id === state.selectedId);
+    if (!record) {
+      els.auditPanel.innerHTML = '<div class="note-box">Select a record to inspect it.</div>';
+      return;
+    }
+    const item = state.results ? state.results.perRecord.find(x => x.record.id === record.id) : null;
+    const matches = item ? item.matches : [];
+    const hasResult = !!item;
+
+    if (!hasResult) {
+      els.auditPanel.innerHTML = `
+        <div class="audit-head">
+          <div><span class="record-id">${record.id}</span><h2>${record.title}</h2></div>
+          <span class="badge pending">pending</span>
+        </div>
+        ${timelineHTML(record, null, true)}
+        <div class="note-box" style="margin-top:14px">Run the query to audit this record.</div>`;
+      return;
+    }
+
+    if (!matches.length) {
+      const diagnosis = diagnose(record, state.results.query);
+      els.auditPanel.innerHTML = `
+        <div class="audit-head">
+          <div><span class="record-id">${record.id}</span><h2>${record.title}</h2></div>
+          <span class="badge fail">no match</span>
+        </div>
+        ${timelineHTML(record, null, true)}
+        <div class="audit-section">
+          <h3>Why this record is excluded</h3>
+          <div class="diagnosis"><strong>No witness found</strong>${diagnosis}</div>
+        </div>
+        <div class="audit-section">
+          <h3>Record note</h3>
+          <div class="note-box">${record.note}</div>
+        </div>
+        <div class="audit-section">
+          <h3>Intervals in this BEST</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Label</th><th>Interval ensemble</th></tr></thead>
+              <tbody>
+                ${["S", "T", "C", "P"].map(label => `<tr><td>${label}</td><td><code>${formatIE(record.supports[label] || [])}</code></td></tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+      return;
+    }
+
+    state.selectedMatch = Math.min(state.selectedMatch, matches.length - 1);
+    const match = matches[state.selectedMatch];
+    const kind = state.results.query.kind;
+    const rows = traceRows(record, match, kind);
+    const witnessCards = [
+      `<div class="witness s"><span>x</span><strong>${fmt(match.x)}</strong></div>`,
+      `<div class="witness t"><span>a</span><strong>${fmt(match.a)}</strong></div>`,
+      `<div class="witness c"><span>b</span><strong>${fmt(match.b)}</strong></div>`
+    ];
+    if (kind === "pges") {
+      witnessCards.push(`<div class="witness p"><span>c</span><strong>${fmt(match.c)}</strong></div>`);
+    }
+
+    const picker = matches.length > 1
+      ? `<div class="match-picker" role="group" aria-label="Choose a matched pattern">${matches.map((m, i) => `<button type="button" data-match-index="${i}" aria-pressed="${i === state.selectedMatch}">Pattern ${i + 1}: x=${fmt(m.x)}, c=${m.c == null ? "—" : fmt(m.c)}</button>`).join("")}</div>`
+      : "";
+
+    const trace = `
+      <div class="trace">
+        <h3>Support checks at the witness</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Conjunct</th><th>Support</th><th>Point</th><th>Check</th></tr></thead>
+            <tbody>
+              ${rows.map(r => `<tr><td><code>${r.condition}</code></td><td><code>${formatIE(r.support)}</code></td><td><code>${fmt(r.point)}</code></td><td class="${r.pass ? "pass" : "fail"}">${r.pass ? "true" : "false"}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    const extra = kind === "pges"
+      ? `P ends at ${fmt(match.y + match.c)} s; seizure offset x+a+b = ${fmt(match.y)} s.`
+      : `Seizure offset x+a+b = ${fmt(match.y)} s.`;
+
+    els.auditPanel.innerHTML = `
+      <div class="audit-head">
+        <div><span class="record-id">${record.id}</span><h2>${record.title}</h2></div>
+        <span class="badge pass">${matches.length} pattern${matches.length > 1 ? "s" : ""}</span>
+      </div>
+      ${timelineHTML(record, match, true)}
+      <div class="witness-grid">${witnessCards.join("")}</div>
+      ${picker}
+      <div class="note-box">${record.note}<br><br><strong>${kind.toUpperCase()}</strong> witness: x=${fmt(match.x)} s, a=${fmt(match.a)} s, b=${fmt(match.b)} s${kind === "pges" ? `, c=${fmt(match.c)} s` : ""}. ${extra}</div>
+      ${trace}
+      <div class="audit-section">
+        <h3>Used intervals</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Role</th><th>Interval</th></tr></thead>
+            <tbody>
+              ${["S", "T", "C", "P"].filter(label => match.used[label]).map(label => `<tr><td>${label}</td><td><code>${bracket(match.used[label])}</code></td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  function renderAll() {
+    renderFormula();
+    renderSummary();
+    renderRecordGrid();
+    renderAudit();
+  }
+
+  /* ---------- events ---------- */
+  els.presetButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      state.preset = button.dataset.preset;
+      if (state.preset === "gtc") state.cMin = 0;
+      els.cMin.value = String(state.cMin);
+      els.cMinVal.textContent = state.preset === "pges" ? String(state.cMin) : "—";
+      els.presetButtons.forEach(b => b.setAttribute("aria-pressed", String(b === button)));
+      runQuery();
+    });
+  });
+
+  els.cMin.addEventListener("input", () => {
+    state.cMin = Number(els.cMin.value);
+    els.cMinVal.textContent = String(state.cMin);
+    if (state.preset === "pges") runQuery();
+  });
+
+  els.runBtn.addEventListener("click", runQuery);
+
+  els.resetBtn.addEventListener("click", () => {
+    state.preset = "pges";
+    state.cMin = 0;
+    state.selectedId = "P01";
+    state.selectedMatch = 0;
+    els.cMin.value = "0";
+    els.cMinVal.textContent = "0";
+    els.presetButtons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.preset === "pges")));
+    runQuery();
+  });
+
+  els.recordGrid.addEventListener("click", event => {
+    const card = event.target.closest("[data-record]");
+    if (!card) return;
+    state.selectedId = card.dataset.record;
+    state.selectedMatch = 0;
+    renderRecordGrid();
+    renderAudit();
+  });
+
+  els.auditPanel.addEventListener("click", event => {
+    const button = event.target.closest("[data-match-index]");
+    if (!button) return;
+    state.selectedMatch = Number(button.dataset.matchIndex);
+    renderAudit();
+  });
+
+  els.downloadBtn.addEventListener("click", () => {
+    const payload = {
+      name: "qel-best-demo",
+      description: "Synthetic BEST records for the QEL cohort playground. Times are in seconds; intervals are closed.",
+      axis_seconds: [0, MAX_TIME],
+      labels: ["S", "T", "C", "P"],
+      records: RAW_DATASET
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "qel-best-demo.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  /* ---------- initial render ---------- */
+  renderFormula();
+  renderRecordGrid();
+  runQuery();
+})();
+</script>
+</body>
+</html>
