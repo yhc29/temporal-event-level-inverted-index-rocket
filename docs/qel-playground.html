@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Interactive BEST records and QEL cohort query playground for GTC and PGES phenotypes.">
+<meta name="description" content="Interactive BEST records and QEL cohort query playground for GTC and PGES phenotypes. Manual evaluation mode for PGES formula.">
 <title>QEL Cohort Playground — Synthetic BEST Records</title>
 <style>
   :root {
@@ -322,16 +322,17 @@
 <main id="main" class="wrap">
   <section class="hero">
     <div>
-      <div class="eyebrow">Interactive demo · QEL / BEST</div>
-      <h1>Build a cohort from ten annotated timelines</h1>
+      <div class="eyebrow">Interactive demo · QEL / BEST · Manual Evaluation</div>
+      <h1>Build a cohort from annotated timelines</h1>
       <p class="lede">
         Each card is a synthetic BEST record. Choose GTC or PGES, adjust the suppression filter,
         run the query, and inspect the witness that makes a record satisfy the temporal formula.
+        Use Manual Evaluation mode to load <code>pges-manual-eval.json</code> and verify formula semantics.
       </p>
     </div>
     <div class="hero-badge">
       <strong>Synthetic data</strong>
-      10 records · 0–180 s · closed intervals<br>
+      <span id="datasetInfo">10 records · 0–180 s · closed intervals</span><br>
       Not the paper's clinical cohort
     </div>
   </section>
@@ -343,6 +344,13 @@
         <div class="segmented" role="group" aria-label="Choose a phenotype preset">
           <button type="button" data-preset="pges" aria-pressed="true">PGES</button>
           <button type="button" data-preset="gtc" aria-pressed="false">GTC</button>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span class="panel-label">Manual Evaluation</span>
+          <input type="file" id="evalFile" accept="application/json" style="font-size:12px;">
+          <button type="button" class="btn btn-ghost btn-small" id="loadEvalBtn">Load pges-manual-eval.json</button>
+          <button type="button" class="btn btn-ghost btn-small" id="useBuiltInBtn">Use built-in dataset</button>
+          <span id="evalStatus" style="font-size:12px; color: var(--muted);"></span>
         </div>
       </div>
       <div class="query-actions">
@@ -373,6 +381,9 @@
     <div class="summary-card"><strong id="sumPatterns">—</strong><span>matched patterns</span></div>
     <div class="summary-card"><strong id="sumRecords">10</strong><span>records evaluated</span></div>
     <div class="summary-card runtime"><strong id="sumRuntime">—</strong><span>browser runtime</span></div>
+    <div class="summary-card" style="grid-column: 1 / -1">
+      <span id="evalMeta" style="font-size:12px; color:var(--muted); line-height:1.5;"></span>
+    </div>
   </section>
 
   <div class="workspace">
@@ -380,9 +391,10 @@
       <div class="section-head">
         <div>
           <h2 id="records-title">BEST records</h2>
-          <p>Click a record to inspect its interval supports and witness.</p>
+          <p>Click a record to inspect its interval supports and witness. Manual evaluation cases include expected results for verification.</p>
         </div>
         <button type="button" class="btn btn-ghost btn-small" id="downloadBtn">Download dataset</button>
+        <button type="button" class="btn btn-ghost btn-small" id="downloadEvalBtn">Download pges-manual-eval.json</button>
       </div>
       <div class="record-grid" id="recordGrid"></div>
     </section>
@@ -649,13 +661,16 @@
     }
   ];
 
-  const DATASET = RAW_DATASET.map(raw => {
+  let DATASET = RAW_DATASET.map(raw => {
     const supports = {};
-    for (const [label, intervals] of Object.entries(raw.events)) {
-      supports[label] = norm(intervals.map(([a, b]) => iv(a, b)));
+    for (const [label, intervals] of Object.entries(raw.events || {})) {
+      supports[label] = norm((intervals || []).map(([a, b]) => iv(a, b)));
     }
     return { ...raw, supports, gtcBody: GTC_BODY, pgesBody: PGES_BODY };
   });
+
+  let DATASET_MODE = "builtin"; // "builtin" or "eval"
+  let EVAL_META = null; // metadata from loaded eval json
 
   /* ---------- witness search ---------- */
   function findUsed(record, x, a, b, c, kind) {
@@ -911,7 +926,14 @@
     sumRecords: document.getElementById("sumRecords"),
     sumRuntime: document.getElementById("sumRuntime"),
     presetButtons: [...document.querySelectorAll("[data-preset]")],
-    downloadBtn: document.getElementById("downloadBtn")
+    downloadBtn: document.getElementById("downloadBtn"),
+    downloadEvalBtn: document.getElementById("downloadEvalBtn"),
+    evalFile: document.getElementById("evalFile"),
+    loadEvalBtn: document.getElementById("loadEvalBtn"),
+    useBuiltInBtn: document.getElementById("useBuiltInBtn"),
+    evalStatus: document.getElementById("evalStatus"),
+    datasetInfo: document.getElementById("datasetInfo"),
+    evalMeta: document.getElementById("evalMeta")
   };
 
   function currentQuery() {
@@ -977,6 +999,23 @@
   }
 
   function renderSummary() {
+    if (els.sumRecords) els.sumRecords.textContent = String(DATASET.length);
+    if (els.datasetInfo) {
+      if (DATASET_MODE === "eval" && EVAL_META) {
+        els.datasetInfo.textContent = `${DATASET.length} manual eval cases · ${EVAL_META.axis_seconds ? EVAL_META.axis_seconds.join("–") : "0–240"} s · closed intervals`;
+      } else {
+        els.datasetInfo.textContent = "10 records · 0–180 s · closed intervals";
+      }
+    }
+    if (els.evalMeta) {
+      if (DATASET_MODE === "eval" && EVAL_META) {
+        const cats = {};
+        DATASET.forEach(r => { if (r.category) cats[r.category] = (cats[r.category]||0)+1; });
+        els.evalMeta.innerHTML = `<strong>Manual Evaluation:</strong> ${EVAL_META.name} v${EVAL_META.version||"?"} · ${DATASET.length} cases · Categories: ${Object.entries(cats).map(([k,v])=>k+":"+v).join(", ")}. Expected results included for verification.`;
+      } else {
+        els.evalMeta.innerHTML = "<strong>Built-in dataset:</strong> 10 curated cases from the original demo.";
+      }
+    }
     if (!state.results) {
       els.sumPatients.textContent = "—";
       els.sumPatterns.textContent = "—";
@@ -1003,13 +1042,15 @@
       if (selected) classes.push("is-selected");
       if (matches && matches.length) classes.push("is-match");
       if (matches && !matches.length) classes.push("is-miss");
+      const expected = record.expected || null;
+      const cat = record.category ? `<span class="badge pending" style="margin-left:4px;">${record.category}</span>` : "";
       return `<button type="button" class="${classes.join(" ")}" data-record="${record.id}" aria-pressed="${selected}">
         <div class="record-head">
-          <div><span class="record-id">${record.id}</span><h3>${record.title}</h3></div>
+          <div><span class="record-id">${record.id}${cat}</span><h3>${record.title || record.note || record.id}</h3></div>
           ${badge}
         </div>
         ${timelineHTML(record, null, false)}
-        <div class="record-foot"><span>${record.note}</span><span class="record-count">${countEvents(record)} iv</span></div>
+        <div class="record-foot"><span>${record.note || ""}${expected ? " • expected: " + (expected.shouldMatch ? "match" : "no match") + (expected.minPatterns ? (" ("+expected.minPatterns+"+)") : "") : ""}</span><span class="record-count">${countEvents(record)} iv</span></div>
       </button>`;
     }).join("");
   }
@@ -1090,11 +1131,13 @@
 
     if (!matches.length) {
       const diagnosis = diagnose(record, state.results.query);
+      const expected = record.expected || null;
+      const expHtml = expected ? `<div class="audit-section"><h3>Expected (manual eval)</h3><div class="note-box"><strong>shouldMatch:</strong> ${expected.shouldMatch} ${expected.minPatterns ? ", minPatterns: "+expected.minPatterns : ""}<br>${expected.reason ? "<strong>Reason:</strong> "+expected.reason : ""}</div></div>` : "";
       els.auditPanel.innerHTML = `
         <div class="audit-head">
-          <div><span class="record-id">${record.id}</span><h2>${record.title}</h2></div>
+          <div><span class="record-id">${record.id}</span><h2>${record.title || record.note || record.id}</h2>${record.category ? '<div style="margin-top:4px"><span class="badge pending">'+record.category+'</span></div>' : ""}</div>
           <span class="badge fail">no match</span>
-        </div>
+        </div>${expHtml}
         ${timelineHTML(record, null, true)}
         <div class="audit-section">
           <h3>Why this record is excluded</h3>
@@ -1152,15 +1195,18 @@
       ? `P ends at ${fmt(match.y + match.c)} s; seizure offset x+a+b = ${fmt(match.y)} s.`
       : `Seizure offset x+a+b = ${fmt(match.y)} s.`;
 
+    const expected = record.expected || null;
+    const expHtml = expected ? `<div class="audit-section"><h3>Expected (manual eval)</h3><div class="note-box"><strong>shouldMatch:</strong> ${expected.shouldMatch} ${expected.minPatterns ? ", minPatterns: "+expected.minPatterns : ""}<br>${expected.reason ? "<strong>Reason:</strong> "+expected.reason : ""}</div></div>` : "";
+
     els.auditPanel.innerHTML = `
       <div class="audit-head">
-        <div><span class="record-id">${record.id}</span><h2>${record.title}</h2></div>
+        <div><span class="record-id">${record.id}</span><h2>${record.title || record.note || record.id}</h2>${record.category ? '<div style="margin-top:4px"><span class="badge pending">'+record.category+'</span></div>' : ""}</div>
         <span class="badge pass">${matches.length} pattern${matches.length > 1 ? "s" : ""}</span>
-      </div>
+      </div>${expHtml}
       ${timelineHTML(record, match, true)}
       <div class="witness-grid">${witnessCards.join("")}</div>
       ${picker}
-      <div class="note-box">${record.note}<br><br><strong>${kind.toUpperCase()}</strong> witness: x=${fmt(match.x)} s, a=${fmt(match.a)} s, b=${fmt(match.b)} s${kind === "pges" ? `, c=${fmt(match.c)} s` : ""}. ${extra}</div>
+      <div class="note-box">${record.note || ""}<br><br><strong>${kind.toUpperCase()}</strong> witness: x=${fmt(match.x)} s, a=${fmt(match.a)} s, b=${fmt(match.b)} s${kind === "pges" ? `, c=${fmt(match.c)} s` : ""}. ${extra}</div>
       ${trace}
       <div class="audit-section">
         <h3>Used intervals</h3>
@@ -1247,6 +1293,118 @@
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
+
+  if (els.downloadEvalBtn) {
+    els.downloadEvalBtn.addEventListener("click", () => {
+      // Download the pges-manual-eval.json we just created
+      fetch("./pges-manual-eval.json")
+        .then(r => r.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "pges-manual-eval.json";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        })
+        .catch(() => {
+          alert("Could not download pges-manual-eval.json. Make sure it exists in the same directory.");
+        });
+    });
+  }
+
+  function loadEvaluationDataset(json) {
+    try {
+      if (!json || !json.cases) {
+        throw new Error("Invalid evaluation JSON: missing cases");
+      }
+      const cases = json.cases.map(c => {
+        const rawEvents = c.events || {};
+        const supports = {};
+        for (const [label, intervals] of Object.entries(rawEvents)) {
+          supports[label] = norm((intervals || []).map(([a, b]) => iv(a, b)));
+        }
+        return {
+          id: c.id,
+          title: c.title || c.id,
+          note: c.note || "",
+          category: c.category || "",
+          expected: c.expected || null,
+          relation_focus: c.relation_focus || null,
+          events: rawEvents,
+          supports,
+          gtcBody: GTC_BODY,
+          pgesBody: PGES_BODY
+        };
+      });
+      DATASET = cases;
+      DATASET_MODE = "eval";
+      EVAL_META = json;
+      state.selectedId = DATASET[0] ? DATASET[0].id : null;
+      state.selectedMatch = 0;
+      state.results = null;
+      if (els.evalStatus) els.evalStatus.textContent = `Loaded ${DATASET.length} cases from ${json.name || "evaluation set"}`;
+      renderAll();
+      runQuery();
+    } catch (e) {
+      if (els.evalStatus) els.evalStatus.textContent = "Error: " + e.message;
+      alert("Failed to load evaluation dataset: " + e.message);
+    }
+  }
+
+  if (els.loadEvalBtn) {
+    els.loadEvalBtn.addEventListener("click", () => {
+      const file = els.evalFile && els.evalFile.files && els.evalFile.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const json = JSON.parse(ev.target.result);
+            loadEvaluationDataset(json);
+          } catch (e) {
+            if (els.evalStatus) els.evalStatus.textContent = "Parse error: " + e.message;
+            alert("Invalid JSON: " + e.message);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        // try to fetch
+        fetch("./pges-manual-eval.json")
+          .then(r => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .then(json => loadEvaluationDataset(json))
+          .catch(e => {
+            if (els.evalStatus) els.evalStatus.textContent = "Fetch error: " + e.message;
+            alert("Could not load pges-manual-eval.json: " + e.message);
+          });
+      }
+    });
+  }
+
+  if (els.useBuiltInBtn) {
+    els.useBuiltInBtn.addEventListener("click", () => {
+      // rebuild builtin dataset
+      DATASET = RAW_DATASET.map(raw => {
+        const supports = {};
+        for (const [label, intervals] of Object.entries(raw.events || {})) {
+          supports[label] = norm((intervals || []).map(([a, b]) => iv(a, b)));
+        }
+        return { ...raw, supports, gtcBody: GTC_BODY, pgesBody: PGES_BODY };
+      });
+      DATASET_MODE = "builtin";
+      EVAL_META = null;
+      state.selectedId = DATASET[0] ? DATASET[0].id : null;
+      state.selectedMatch = 0;
+      state.results = null;
+      if (els.evalStatus) els.evalStatus.textContent = "Using built-in dataset";
+      renderAll();
+      runQuery();
+    });
+  }
 
   /* ---------- initial render ---------- */
   renderFormula();
