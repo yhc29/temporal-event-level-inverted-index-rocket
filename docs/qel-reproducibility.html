@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="A reproducibility guide to BEST, QEL query construction, and the PGES cohort query from the QEL paper.">
 <title>QEL / BEST Reproducibility Guide — PGES Cohort</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2318212b'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='20' font-weight='700' fill='white' text-anchor='middle'%3EQ%3C/text%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #f5f3ee;
@@ -307,6 +308,7 @@
       <a href="#qel">QEL</a>
       <a href="#cohort">Cohort</a>
       <a href="#pges">PGES case</a>
+      <a href="qel-algorithm.html">Algorithm</a>
     </nav>
     <a class="btn btn-primary btn-small" href="qel-playground.html">Open playground →</a>
   </div>
@@ -324,6 +326,7 @@
     <div class="hero-actions">
       <a class="btn btn-primary" href="qel-playground.html">Run the interactive demo</a>
       <a class="btn btn-ghost" href="#pges">Jump to the PGES audit</a>
+      <a class="btn btn-ghost" href="qel-algorithm.html">Trace the algorithm</a>
     </div>
     <p class="hero-meta">
       Companion to <em>QEL: Rational Ensemble Logic for Model-Checking-Based Cohort Discovery with
@@ -444,7 +447,7 @@
         <div class="side-notes">
           <div class="side-note">
             <span class="num">1</span>
-            <div><b>Atomic labels</b><span>S = overall seizure, T = tonic phase, C = clonic phase, P = postictal EEG suppression.</span></div>
+            <div><b>Atomic labels</b><span>S = overall seizure, T = tonic phase, C = clonic phase, P = EEG suppression.</span></div>
           </div>
           <div class="side-note">
             <span class="num">2</span>
@@ -470,7 +473,7 @@
               <tr><td><code>S</code></td><td><code>{ [10, 70] }</code></td><td>seizure episode</td></tr>
               <tr><td><code>T</code></td><td><code>{ [10, 30] }</code></td><td>tonic phase</td></tr>
               <tr><td><code>C</code></td><td><code>{ [32, 68] }</code></td><td>clonic phase</td></tr>
-              <tr><td><code>P</code></td><td><code>{ [70, 115] }</code></td><td>postictal suppression</td></tr>
+              <tr><td><code>P</code></td><td><code>{ [70, 115] }</code></td><td>EEG suppression</td></tr>
               <tr><td><code>any other p</code></td><td><code>∅</code></td><td>omitted from the stored graph</td></tr>
             </tbody>
           </table>
@@ -557,7 +560,7 @@ closure_mark = [0, 0, 1, 0, 1, 1, 1, 1]</pre>
           <span><i class="legend-dot s"></i>S seizure</span>
           <span><i class="legend-dot t"></i>T tonic</span>
           <span><i class="legend-dot c"></i>C clonic</span>
-          <span><i class="legend-dot p"></i>P suppression</span>
+          <span><i class="legend-dot p"></i>P EEG suppression</span>
           <span>ψ<sub>PGES</sub></span>
         </div>
       </div>
@@ -756,7 +759,7 @@ closure_mark = [0, 0, 1, 0, 1, 1, 1, 1]</pre>
         <div class="kicker">4 · PGES cohort query</div>
         <h2 id="pges-title">The paper's PGES run, audited</h2>
       </div>
-      <p>Postictal generalized EEG suppression: a GTC seizure followed by continuous suppression immediately after seizure offset.</p>
+      <p>Generalized EEG suppression: a GTC seizure followed by continuous suppression immediately after seizure offset.</p>
     </div>
 
     <div class="grid-2">
@@ -803,6 +806,11 @@ closure_mark = [0, 0, 1, 0, 1, 1, 1, 1]</pre>
           <span class="pill">c = 45 s</span>
         </div>
       </article>
+    </div>
+
+    <div class="callout teal" style="margin-top:18px">
+      <span class="mark" aria-hidden="true">↗</span>
+      <div><strong>One evaluation set, two query formulas</strong>The paper's formula is the permissive reference. The playground applies one exact strict formula to the same cases: <code>∃x∃a∃b∃c [□<sub>10</sub>∅ ∧ (□<sub>a+b</sub>(S∧¬P))<sub>10</sub> ∧ (◊<sub>a</sub>(T∧¬C))<sub>10</sub> ∧ (◊<sub>b</sub>(C∧¬T))<sub>10+a</sub> ∧ (□<sub>c</sub>(P∧¬S))<sub>10+a+b</sub>]<sub>x</sub></code>. The exclusions are inside the formula: T/C may overlap when each exclusion has a witness, postictal T/C is allowed because the last conjunct excludes S, not T or C, and c may end before P does. Both counts are shown side by side.</div>
     </div>
 
     <div class="grid-2" style="margin-top:18px">
@@ -864,12 +872,12 @@ closure_mark = [0, 0, 1, 0, 1, 1, 1, 1]</pre>
       <article class="card">
         <span class="tag">Run it locally</span>
         <h3>From this page to the playground</h3>
-        <p>Open <a href="qel-playground.html">the companion playground</a>. It contains ten BEST records, the GTC and PGES presets, a suppression-duration filter, and an audit panel that shows the witness and the four support checks for every match.</p>
+        <p>Open <a href="qel-playground.html">the companion playground</a>. It contains ten built-in records plus a 54-case manual evaluation set, GTC/PGES base/PGES strict presets, a suppression-duration filter, a Solver selector for the optimized or paper finite-cell path, and an audit panel that shows the witness and the support checks for every match.</p>
         <pre class="code-block" style="margin-top:14px"><span class="c"># serve the static pages locally</span>
 cd docs
 python3 -m http.server 8080
 <span class="c"># open http://localhost:8080/qel-reproducibility.html</span></pre>
-        <p style="margin-top:12px">No backend, database, or build step is required for the pages themselves.</p>
+        <p style="margin-top:12px">No backend, database, or build step is required for the pages themselves. For the support-algebra walkthrough behind the audit panel, open the <a href="qel-algorithm.html">core query algorithm page</a>.</p>
       </article>
       <article class="card">
         <span class="tag">Audit trail</span>
@@ -896,6 +904,7 @@ python3 -m http.server 8080
     </div>
     <div class="footer-links">
       <a href="qel-playground.html">Playground</a>
+      <a href="qel-algorithm.html">Core algorithm</a>
       <a href="https://github.com/yhc29/temporal-event-level-inverted-index-rocket/blob/main/telii-rocket/src/api/eeg_query_api.rs">Backend: eeg_query_api.rs</a>
       <a href="https://github.com/yhc29/temporal-event-level-inverted-index-rocket/blob/main/telii-rocket/src/api/query_api.rs">Backend: query_api.rs</a>
     </div>
