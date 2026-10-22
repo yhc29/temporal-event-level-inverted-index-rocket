@@ -7,7 +7,7 @@ Standalone browser documentation and demos for the QEL/PGES temporal query engin
 From the repository root:
 
 ```bash
-python3 -m http.server 8123 --directory docs
+python3 -m http.server 8123 --directory ./
 ```
 
 Open:
@@ -16,14 +16,14 @@ Open:
 - <http://localhost:8123/qel-playground.html> — interactive cohort playground
 - <http://localhost:8123/qel-algorithm.html> — Algorithms 1–3 walkthrough
 
-`file://` works for basic viewing, but the playground needs HTTP to fetch `pges-manual-eval.json`. There is no build step, package install, CDN dependency, or backend requirement.
+`file://` works for basic viewing, but browsers block the playground's dataset fetch there; serve the folder over HTTP or use **Choose JSON** to load `pges-manual-eval.json` manually. There is no build step, package install, CDN dependency, or backend requirement.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
 | `qel-reproducibility.html` | Self-contained guide to interval ensembles, endpoint arithmetic, PGES formulas, strict semantics, and backend mappings. |
-| `qel-playground.html` | Interactive cohort builder with 10 synthetic BEST records, GTC/PGES presets, a suppression filter, two solver paths, and manual evaluation loading. |
+| `qel-playground.html` | Interactive cohort builder for the 54-case evaluation set, with GTC/PGES presets, a suppression filter, two solver paths, JSON replacement, and pattern/patient counts. |
 | `qel-algorithm.html` | Interactive trace of Algorithms 1–3 on record P01: primitives, model checking, and finite-evidence scanning. |
 | `qel-query-core.js` | Shared JavaScript engine. Exposes `window.QELCore` and is loaded by the playground and algorithm page. |
 | `pges-manual-eval.json` | 54-case manual evaluation set, version 3.0.0, with expected base and strict outcomes. |
@@ -46,14 +46,15 @@ Open:
 
 `qel-playground.html` is the interactive cohort query page:
 
-- Built-in dataset: 10 synthetic BEST records over 0–180 s.
+- Loads the 54-case evaluation set (`pges-manual-eval.json`) by default over HTTP; **Choose JSON** replaces it, and **Reload 54 cases** restores the default set.
+- 54 synthetic BEST records over 0–240 s.
 - Presets: GTC, PGES base, PGES strict.
 - `c >= n` witness filter for suppression duration.
 - Solver selector:
   - **Optimized witness search** — endpoint-derived candidates verified with interval support.
   - **Paper finite-cell (Algorithm 3)** — finite-cell style candidate generation, also verified with interval support.
 - Audit panel with the selected witness, per-conjunct checks, and matched pattern details.
-- Manual evaluation mode: load `pges-manual-eval.json` or use the fetch button.
+- Results table that reports matched patterns and patients separately for base, strict, and base-only queries.
 
 ### Algorithms 1–3
 
@@ -63,7 +64,7 @@ Open:
 - **Algorithm 2**: translate a candidate, substitute `q = x`, eliminate auxiliary variables, and evaluate every conjunct.
 - **Algorithm 3**: enumerate observed boundary quadruples and verify the full PGES body support.
 
-The page uses the new cool-gray visual system. The playground and reproducibility pages retain their existing visual style.
+All three pages share the same cool-gray visual system.
 
 ## Core semantics
 
@@ -114,5 +115,5 @@ Numeric comparisons use `EPS = 1e-6` and `TOL = 1e-9`. They are not exact ration
 - `cases[]`: 54 cases, each with `events`, `expected`, and `expected_strict`.
 - `strict_quiet_seconds`: `10`.
 
-At `c >= 0`, both formulas should agree with every expected case. The playground reports patient and pattern counts separately. The set is synthetic and is not the paper's clinical cohort.
+At `c >= 0`, both formulas should agree with every expected case. The playground starts with 47 base patterns among 43 patients, 36 strict patterns among 33 patients, and 11 base-only patterns among 10 patients. It reports patient and pattern counts separately. The set is synthetic and is not the paper's clinical cohort.
 
